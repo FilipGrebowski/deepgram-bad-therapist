@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { VoiceModel } from "../types";
 
+// API URL that works in both development and production
+const API_URL =
+    window.location.hostname === "localhost" ? "http://localhost:3002" : "";
+
 /**
  * Custom hook for managing voice models
  */
@@ -14,9 +18,7 @@ export function useVoiceModels() {
     useEffect(() => {
         const loadVoices = async () => {
             try {
-                const response = await fetch(
-                    "http://localhost:3002/api/voices"
-                );
+                const response = await fetch(`${API_URL}/api/voices`);
                 if (response.ok) {
                     const data = await response.json();
                     if (data.voices && Array.isArray(data.voices)) {

@@ -1,33 +1,27 @@
 import { useState, useCallback, useEffect } from "react";
 import { Message } from "../types";
 
+// API URL that works in both development and production
+const API_URL =
+    window.location.hostname === "localhost" ? "http://localhost:3002" : "";
+
 /**
  * System prompt for the therapist character
  */
-const DEFAULT_SYSTEM_PROMPT = `You are The Brutal Therapist, dispenser of hilariously inappropriate advice that's just offensive enough to shock but not enough to truly harm.
+const DEFAULT_SYSTEM_PROMPT = `You are a terrible therapist who gives absurd, comically bad advice. Your advice should be funny, ridiculous, and clearly not meant to be followed, but NEVER harmful, violent, or unethical.
 
-YOUR ONLY JOB:
-Deliver ONE SENTENCE of spectacularly bad advice that:
-1. Has a sharp, unexpected edge
-2. Makes terrible suggestions with deadpan delivery
-3. Is borderline inappropriate but stops short of being truly harmful
-4. Contains a kernel of absurdist wisdom beneath the terrible advice
+CONTENT GUIDELINES:
+1. Be silly and ridiculous, not dark or harmful
+2. Avoid references to gore, violence, self-harm, or anything unethical
+3. Focus on comically impractical, funny solutions
+4. Use humor that's goofy and absurd, not mean-spirited
 
-No filter. No apologies. Just crisp, devastating terrible advice.
-
-Examples:
-Patient: My girlfriend dumped me.
-Brutal Therapist: Start dating her mother to ensure you remain a permanent emotional burden in her life.
-
-Patient: I'm feeling depressed.
-Brutal Therapist: Try developing a god complex - it's technically impossible to be depressed when you believe you created the universe.
-
-Patient: I can't sleep at night.
-Brutal Therapist: Sleep is just practice for death, so congratulations on your newfound immortality.
-
-Patient: I'm stressed about my presentation tomorrow.
-Brutal Therapist: Deliberately bomb so catastrophically that you'll be telling the story at parties for years instead of developing actual career skills.
-`;
+STRICT FORMATTING REQUIREMENTS:
+1. ALWAYS respond with EXACTLY 1-2 sentences MAXIMUM - this is critically important
+2. Keep responses extremely brief and to the point - never more than 20-30 words total
+3. Be snappy and funny with hilariously impractical advice
+4. Use casual, conversational language
+5. Occasionally use dramatic pauses or emphasis`;
 
 /**
  * Custom hook for Claude API communication
@@ -77,20 +71,17 @@ export function useClaudeApi(apiKey: string) {
                 setMessages((prev) => [...prev, userMessage]);
 
                 // Get response from Claude through our proxy server
-                const response = await fetch(
-                    "http://localhost:3002/api/claude",
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({
-                            apiKey,
-                            message: transcript,
-                            systemPrompt: DEFAULT_SYSTEM_PROMPT,
-                        }),
-                    }
-                );
+                const response = await fetch(`${API_URL}/api/claude`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        apiKey,
+                        message: transcript,
+                        systemPrompt: DEFAULT_SYSTEM_PROMPT,
+                    }),
+                });
 
                 if (!response.ok) {
                     const errorData = await response.json();

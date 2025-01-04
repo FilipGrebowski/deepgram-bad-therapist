@@ -1,5 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
+// API URL that works in both development and production
+const API_URL =
+    window.location.hostname === "localhost" ? "http://localhost:3002" : "";
+
 /**
  * Custom hook for text-to-speech functionality
  *
@@ -70,7 +74,7 @@ export function useTextToSpeech(
                     onPlaybackStarted();
                 }
 
-                const response = await fetch("http://localhost:3002/api/tts", {
+                const response = await fetch(`${API_URL}/api/tts`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",

@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { ApiKeys } from "../types";
 
+// API URL that works in both development and production
+const API_URL =
+    window.location.hostname === "localhost" ? "http://localhost:3002" : "";
+
 /**
  * Custom hook for managing API keys
  */
@@ -16,7 +20,7 @@ export function useApiKeys() {
     useEffect(() => {
         const loadApiKeys = async () => {
             try {
-                const response = await fetch("http://localhost:3002/api/keys");
+                const response = await fetch(`${API_URL}/api/keys`);
                 if (response.ok) {
                     const data: ApiKeys = await response.json();
                     if (data.deepgramApiKey)
