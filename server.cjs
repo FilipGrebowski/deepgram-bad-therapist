@@ -11,7 +11,7 @@ app.use(express.json());
 
 // Available Claude models to try in order of preference
 const CLAUDE_MODELS = [
-    "claude-3-7-sonnet-20240307", // Latest Claude 3.7 Sonnet model
+    "claude-3-7-sonnet", // Latest Claude 3.7 Sonnet model
 ];
 
 // Available Deepgram voice models
@@ -46,7 +46,7 @@ app.post("/api/claude", async (req, res) => {
             const response = await axios.post(
                 "https://api.anthropic.com/v1/messages",
                 {
-                    model: "claude-3-7-sonnet-20240307", // Latest Claude 3.7 Sonnet model
+                    model: "claude-3-7-sonnet", // Latest Claude 3.7 Sonnet model
                     max_tokens: 1000,
                     system:
                         systemPrompt ||
