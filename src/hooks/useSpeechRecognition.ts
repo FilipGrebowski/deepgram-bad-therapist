@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { createClient, LiveTranscriptionEvents } from "@deepgram/sdk";
 import { DeepgramTranscriptionData } from "../types";
 
@@ -16,6 +16,38 @@ export function useSpeechRecognition(
     const [transcript, setTranscript] = useState<string>("");
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const deepgramRef = useRef<any>(null);
+    const lastTranscriptUpdateRef = useRef<number>(Date.now());
+    const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Function to check for silence
+    const checkForSilence = useCallback(() => {
+        if (isListening) {
+            const now = Date.now();
+            const timeSinceLastUpdate = now - lastTranscriptUpdateRef.current;
+
+            // If more than 3 seconds have passed since the last update, stop listening
+            if (timeSinceLastUpdate > 3000 && transcript.trim().length > 0) {
+                console.log("Silence detected, stopping automatically");
+                stopListening();
+            }
+        }
+    }, [isListening, transcript]);
+
+    // Setup silence detection when listening starts
+    useEffect(() => {
+        if (isListening) {
+            // Check every second for silence
+            silenceTimerRef.current = setInterval(checkForSilence, 1000);
+
+            // Clear timer when component unmounts or listening stops
+            return () => {
+                if (silenceTimerRef.current) {
+                    clearInterval(silenceTimerRef.current);
+                    silenceTimerRef.current = null;
+                }
+            };
+        }
+    }, [isListening, checkForSilence]);
 
     /**
      * Start listening for speech input
@@ -43,6 +75,9 @@ export function useSpeechRecognition(
 
             deepgramRef.current = connection;
 
+            // Reset the last transcript update time when starting
+            lastTranscriptUpdateRef.current = Date.now();
+
             // Listen for the transcription results
             connection.on(
                 LiveTranscriptionEvents.Transcript,
@@ -57,6 +92,8 @@ export function useSpeechRecognition(
                                 " " +
                                 data.channel.alternatives[0].transcript
                         );
+                        // Update the timestamp when we receive new transcript content
+                        lastTranscriptUpdateRef.current = Date.now();
                     }
                 }
             );
@@ -107,6 +144,12 @@ export function useSpeechRecognition(
 
         if (deepgramRef.current) {
             deepgramRef.current.finish();
+        }
+
+        // Clear silence detection timer
+        if (silenceTimerRef.current) {
+            clearInterval(silenceTimerRef.current);
+            silenceTimerRef.current = null;
         }
 
         setIsListening(false);

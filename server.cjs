@@ -11,7 +11,7 @@ app.use(express.json());
 
 // Available Claude models to try in order of preference
 const CLAUDE_MODELS = [
-    "claude-3-7-sonnet", // Latest Claude 3.7 Sonnet model
+    "claude-3-5-sonnet-20240620", // Claude 3.5 Sonnet
 ];
 
 // Available Deepgram voice models
@@ -40,13 +40,13 @@ app.post("/api/claude", async (req, res) => {
                 .json({ error: "API key and message are required" });
         }
 
-        console.log("Making request to Claude 3.7 Sonnet...");
+        console.log("Making request to Claude 3.5 Sonnet...");
 
         try {
             const response = await axios.post(
                 "https://api.anthropic.com/v1/messages",
                 {
-                    model: "claude-3-7-sonnet", // Latest Claude 3.7 Sonnet model
+                    model: "claude-3-5-sonnet-20240620", // Claude 3.5 Sonnet
                     max_tokens: 1000,
                     system:
                         systemPrompt ||
@@ -80,10 +80,10 @@ STRICT FORMATTING REQUIREMENTS:
                 }
             );
 
-            console.log("Success with Claude 3.7 Sonnet!");
+            console.log("Success with Claude 3.5 Sonnet!");
             return res.json(response.data);
         } catch (error) {
-            console.error("Error with Claude 3.7 Sonnet:", error.message);
+            console.error("Error with Claude 3.5 Sonnet:", error.message);
 
             if (error.response?.data) {
                 console.error(
@@ -95,7 +95,7 @@ STRICT FORMATTING REQUIREMENTS:
             res.status(error.response?.status || 500).json({
                 error:
                     error.response?.data?.error?.message ||
-                    "Failed to get response from Claude 3.7 Sonnet. Please check your API key and try again.",
+                    "Failed to get response from Claude 3.5 Sonnet. Please check your API key and try again.",
             });
         }
     } catch (error) {

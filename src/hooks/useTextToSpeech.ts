@@ -89,6 +89,7 @@ export function useTextToSpeech(
                 if (!response.ok) {
                     console.error("TTS request failed:", response.statusText);
                     // We've already started the typing animation, so just continue
+                    setIsSpeaking(false);
                     return Promise.resolve();
                 }
 
@@ -113,7 +114,11 @@ export function useTextToSpeech(
                         }
                     };
 
-                    audioRef.current.onended = () => setIsSpeaking(false);
+                    audioRef.current.onended = () => {
+                        console.log("Audio playback ended naturally");
+                        setIsSpeaking(false);
+                    };
+
                     audioRef.current.onerror = (e) => {
                         console.error("Audio playback error:", e);
                         setIsSpeaking(false);
@@ -124,9 +129,11 @@ export function useTextToSpeech(
                     } catch (playError) {
                         console.error("Audio play error:", playError);
                         // We've already started the typing animation, so just continue
+                        setIsSpeaking(false);
                     }
                 } else {
                     console.error("No audio data returned from TTS API");
+                    setIsSpeaking(false);
                 }
 
                 return Promise.resolve();
@@ -143,10 +150,19 @@ export function useTextToSpeech(
      * Stop the current audio playback
      */
     const stopSpeaking = useCallback(() => {
+        console.log("Stop speaking called");
+
+        // Force isSpeaking to false regardless of audio state
+        setIsSpeaking(false);
+
+        // Attempt to pause and reset any playing audio
         if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-            setIsSpeaking(false);
+            try {
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+            } catch (e) {
+                console.error("Error stopping audio playback:", e);
+            }
         }
 
         // Clear any pending timeouts
