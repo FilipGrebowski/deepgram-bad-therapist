@@ -35,14 +35,8 @@ function App() {
         useVoiceModels();
 
     // Claude API communication
-    const {
-        isProcessing,
-        messages,
-        currentlyTyping,
-        processTranscript,
-        clearConversation,
-        startTypingAnimation,
-    } = useClaudeApi(claudeApiKey);
+    const { isProcessing, messages, processTranscript, clearConversation } =
+        useClaudeApi(claudeApiKey);
 
     // Track which message is currently playing
     const [activePlayingIndex, setActivePlayingIndex] = useState<number | null>(
@@ -76,11 +70,7 @@ function App() {
         isSpeaking,
         textToSpeech: originalTextToSpeech,
         stopSpeaking: originalStopSpeaking,
-    } = useTextToSpeech(
-        deepgramApiKey,
-        selectedVoice,
-        startTypingAnimation // Pass the function to start typing when audio starts
-    );
+    } = useTextToSpeech(deepgramApiKey, selectedVoice);
 
     // Wrapper for textToSpeech that tracks which message is playing
     const textToSpeech = (text: string, messageId: number) => {
@@ -144,7 +134,7 @@ function App() {
             conversationRef.current.scrollTop =
                 conversationRef.current.scrollHeight;
         }
-    }, [messages, currentlyTyping]);
+    }, [messages]);
 
     // Add back the startListening wrapper that was removed
     // Wrapper for startListening that clears transcript before starting
@@ -219,7 +209,6 @@ function App() {
                                     message={message}
                                     index={index}
                                     messagesLength={messages.length}
-                                    currentlyTyping={currentlyTyping}
                                     isSpeaking={isSpeaking}
                                     isProcessing={isProcessing}
                                     onTextToSpeech={textToSpeech}

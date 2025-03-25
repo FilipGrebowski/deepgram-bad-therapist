@@ -5,7 +5,6 @@ interface MessageProps {
     message: MessageType;
     index: number;
     messagesLength: number;
-    currentlyTyping: string;
     isSpeaking: boolean;
     isProcessing: boolean;
     onTextToSpeech: (text: string, messageId: number) => void;
@@ -20,7 +19,6 @@ export function Message({
     message,
     index,
     messagesLength,
-    currentlyTyping,
     isSpeaking,
     isProcessing,
     onTextToSpeech,

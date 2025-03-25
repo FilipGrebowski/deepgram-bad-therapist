@@ -6,24 +6,6 @@ const API_URL =
     window.location.hostname === "localhost" ? "http://localhost:3002" : "";
 
 /**
- * System prompt for the therapist character
- */
-const DEFAULT_SYSTEM_PROMPT = `You are a terrible therapist who gives absurd, comically bad advice. Your advice should be funny, ridiculous, and clearly not meant to be followed, but NEVER harmful, violent, or unethical.
-
-CONTENT GUIDELINES:
-1. Be silly and ridiculous, not dark or harmful
-2. Avoid references to gore, violence, self-harm, or anything unethical
-3. Focus on comically impractical, funny solutions
-4. Use humor that's goofy and absurd, not mean-spirited
-
-STRICT FORMATTING REQUIREMENTS:
-1. ALWAYS respond with EXACTLY 1-2 sentences MAXIMUM - this is critically important
-2. Keep responses extremely brief and to the point - never more than 20-30 words total
-3. Be snappy and funny with hilariously impractical advice
-4. Use casual, conversational language
-5. Occasionally use dramatic pauses or emphasis`;
-
-/**
  * Custom hook for Claude API communication
  *
  * @param apiKey - Claude API key
@@ -31,9 +13,6 @@ STRICT FORMATTING REQUIREMENTS:
 export function useClaudeApi(apiKey: string) {
     const [isProcessing, setIsProcessing] = useState<boolean>(false);
     const [messages, setMessages] = useState<Message[]>([]);
-    const [aiResponse, setAiResponse] = useState<string>("");
-    const [currentlyTyping, setCurrentlyTyping] = useState<string>("");
-    const [isTypingPaused, setIsTypingPaused] = useState<boolean>(false);
 
     // Add a debug log
     useEffect(() => {
@@ -104,7 +83,7 @@ export function useClaudeApi(apiKey: string) {
                 if (data?.reply) {
                     const aiResponseText = data.reply;
 
-                    // Add the message immediately without typing animation
+                    // Add the message immediately
                     setMessages((prev) => [
                         ...prev,
                         { role: "assistant", content: aiResponseText },
@@ -129,24 +108,12 @@ export function useClaudeApi(apiKey: string) {
      */
     const clearConversation = useCallback(() => {
         setMessages([]);
-        setAiResponse("");
-        setCurrentlyTyping("");
-    }, []);
-
-    /**
-     * Start the typing animation - we don't use this anymore as we show text immediately
-     */
-    const startTypingAnimation = useCallback(() => {
-        // This is now a no-op since we don't do character-by-character typing
-        console.log("[Debug] startTypingAnimation called (no-op)");
     }, []);
 
     return {
         isProcessing,
         messages,
-        currentlyTyping,
         processTranscript,
         clearConversation,
-        startTypingAnimation,
     };
 }

@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { ApiKeys } from "../types";
 
 // API URL that works in both development and production
 const API_URL =
