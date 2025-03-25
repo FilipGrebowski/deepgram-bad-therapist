@@ -94,6 +94,7 @@ export function useTextToSpeech(
 
                 // Set speaking state
                 setIsSpeaking(true);
+                console.log("Setting isSpeaking to TRUE");
 
                 // Clear any existing timeout
                 if (timeoutRef.current) {
@@ -131,6 +132,7 @@ export function useTextToSpeech(
                 if (!response.ok) {
                     console.error("TTS request failed:", response.statusText);
                     setIsSpeaking(false);
+                    console.log("Setting isSpeaking to FALSE (request failed)");
                     requestInFlightRef.current = false;
                     return Promise.resolve();
                 }
@@ -154,6 +156,8 @@ export function useTextToSpeech(
 
                     audioRef.current.onplay = () => {
                         console.log("Audio playback started");
+                        // Make sure isSpeaking is still true
+                        setIsSpeaking(true);
                         // Clear the fallback timeout since audio is now playing
                         if (timeoutRef.current) {
                             clearTimeout(timeoutRef.current);
@@ -162,7 +166,9 @@ export function useTextToSpeech(
                     };
 
                     audioRef.current.onended = () => {
-                        console.log("Audio ended callback called");
+                        console.log(
+                            "Audio ended callback called - setting isSpeaking to FALSE"
+                        );
                         setIsSpeaking(false);
                         requestInFlightRef.current = false;
                         // Clear references to prevent memory leaks
@@ -171,12 +177,21 @@ export function useTextToSpeech(
 
                     audioRef.current.onerror = (e) => {
                         console.error("Audio playback error:", e);
+                        console.log(
+                            "Setting isSpeaking to FALSE (playback error)"
+                        );
                         setIsSpeaking(false);
                         requestInFlightRef.current = false;
                         audioRef.current = null;
                     };
 
+                    // Keep track if we've already started playing
+                    let hasStartedPlaying = false;
+
                     try {
+                        // Make sure we're still in speaking state before playing
+                        setIsSpeaking(true);
+
                         // Setup a safety timeout to ensure speaking state gets reset
                         // even if onended doesn't fire for some reason
                         const approxDuration =
@@ -190,14 +205,21 @@ export function useTextToSpeech(
 
                         // Start audio playback
                         await audioRef.current.play();
+                        hasStartedPlaying = true;
                     } catch (playError) {
                         console.error("Audio play error:", playError);
-                        setIsSpeaking(false);
-                        requestInFlightRef.current = false;
-                        audioRef.current = null;
+                        if (!hasStartedPlaying) {
+                            console.log(
+                                "Setting isSpeaking to FALSE (play failed)"
+                            );
+                            setIsSpeaking(false);
+                            requestInFlightRef.current = false;
+                            audioRef.current = null;
+                        }
                     }
                 } else {
                     console.error("No audio data returned from TTS API");
+                    console.log("Setting isSpeaking to FALSE (no audio data)");
                     setIsSpeaking(false);
                     requestInFlightRef.current = false;
                 }
@@ -205,6 +227,7 @@ export function useTextToSpeech(
                 return Promise.resolve();
             } catch (error) {
                 console.error("Text-to-speech error:", error);
+                console.log("Setting isSpeaking to FALSE (general error)");
                 setIsSpeaking(false);
                 requestInFlightRef.current = false;
                 return Promise.reject(error);

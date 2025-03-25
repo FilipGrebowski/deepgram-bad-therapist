@@ -1,6 +1,5 @@
 import { VoiceVisualizer } from "./VoiceVisualizer";
 import { Message as MessageType } from "../types";
-import { TypingAnimation } from "./TypingAnimation";
 
 interface MessageProps {
     message: MessageType;
@@ -30,8 +29,9 @@ export function Message({
 }: MessageProps) {
     const isLastMessage = index === messagesLength - 1;
     const isAssistantMessage = message.role === "assistant";
-    const isEmpty = !message.content;
-    const isThisMessagePlaying = activePlayingIndex === index;
+
+    // This message is playing if it's the active index and speech is happening
+    const isThisMessagePlaying = isSpeaking && activePlayingIndex === index;
 
     return (
         <div
@@ -61,18 +61,22 @@ export function Message({
                                 ? stopSpeaking()
                                 : onTextToSpeech(message.content, index)
                         }
-                        disabled={isProcessing}
+                        disabled={
+                            isProcessing ||
+                            (isSpeaking && !isThisMessagePlaying)
+                        }
+                        title={
+                            isThisMessagePlaying
+                                ? "Stop speaking"
+                                : "Play message"
+                        }
                     >
                         {isThisMessagePlaying ? "◼" : "🔊"}
                     </button>
                 )}
             </div>
             <div className="message-content">
-                {isLastMessage && isAssistantMessage && isEmpty ? (
-                    <>{currentlyTyping || <TypingAnimation />}</>
-                ) : (
-                    message.content
-                )}
+                {message.content}
                 {isAssistantMessage && isThisMessagePlaying && (
                     <div className="message-visualizer">
                         <VoiceVisualizer

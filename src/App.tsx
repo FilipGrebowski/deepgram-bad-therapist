@@ -96,7 +96,8 @@ function App() {
 
     // Reset active playing index when speech stops
     useEffect(() => {
-        if (!isSpeaking) {
+        if (!isSpeaking && activePlayingIndex !== null) {
+            console.log("Speech stopped, clearing active playing index");
             setActivePlayingIndex(null);
         }
     }, [isSpeaking]);
@@ -124,22 +125,15 @@ function App() {
             lastProcessedMessageRef.current = lastMessage.content;
             processingTtsRef.current = true;
 
-            // First make sure text appears, then process speech
-            startTypingAnimation();
-
-            // Slight delay to allow typing to start first
-            setTimeout(() => {
-                textToSpeech(lastMessage.content, lastMessageIndex)
-                    .catch((error) =>
-                        console.error("TTS playback error:", error)
-                    )
-                    .finally(() => {
-                        // Reset the processing flag once done
-                        processingTtsRef.current = false;
-                    });
-            }, 50);
+            // Process text-to-speech immediately without delay
+            textToSpeech(lastMessage.content, lastMessageIndex)
+                .catch((error) => console.error("TTS playback error:", error))
+                .finally(() => {
+                    // Reset the processing flag once done
+                    processingTtsRef.current = false;
+                });
         }
-    }, [messages, textToSpeech, startTypingAnimation]);
+    }, [messages, textToSpeech]);
 
     // Add a ref for the conversation container
     const conversationRef = useRef<HTMLDivElement>(null);

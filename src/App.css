@@ -201,19 +201,30 @@ body {
     transition: all 0.2s ease;
     min-width: 2.5rem;
     height: 2.5rem;
+    position: relative;
+    color: var(--foreground);
 }
 
-.speak-button:hover {
+.speak-button:hover:not(:disabled) {
     background-color: var(--muted);
+    transform: scale(1.05);
+}
+
+.speak-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .stop-speech {
     background-color: #ef4444;
     color: white;
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
 }
 
 .stop-speech:hover {
     background-color: #dc2626;
+    transform: scale(1.1);
 }
 
 .loading-container {

@@ -91,26 +91,16 @@ export function useClaudeApi(apiKey: string) {
 
                 const data = await response.json();
 
-                // Add the AI's response to the conversation
+                // Add the AI's response to the conversation immediately
                 if (data?.reply) {
                     const aiResponseText = data.reply;
 
-                    // Add a placeholder for the typing animation
+                    // Add the message immediately without typing animation
+                    // This will allow the speech to start right away
                     setMessages((prev) => [
                         ...prev,
-                        { role: "assistant", content: "" },
+                        { role: "assistant", content: aiResponseText },
                     ]);
-
-                    // Reset the current typing text before setting the new response
-                    setCurrentlyTyping("");
-
-                    // Small delay to ensure state updates properly
-                    setTimeout(() => {
-                        // Set the AI response to trigger the typing effect
-                        setAiResponse(aiResponseText);
-                        // Start typing immediately - DO NOT PAUSE
-                        setIsTypingPaused(false);
-                    }, 10);
                 }
             } catch (error) {
                 console.error("Error getting AI response:", error);
@@ -136,60 +126,12 @@ export function useClaudeApi(apiKey: string) {
     }, []);
 
     /**
-     * Start the typing animation - but we now display immediately
+     * Start the typing animation - we don't use this anymore as we show text immediately
      */
     const startTypingAnimation = useCallback(() => {
-        setIsTypingPaused(false);
+        // This is now a no-op since we don't do character-by-character typing
+        console.log("[Debug] startTypingAnimation called (no-op)");
     }, []);
-
-    // Handle typing effect for AI responses
-    useEffect(() => {
-        if (!aiResponse) {
-            console.log("[Debug] No AI response to type");
-            return;
-        }
-
-        if (isTypingPaused) {
-            console.log("[Debug] Typing is paused");
-            return;
-        }
-
-        console.log("[Debug] Starting typing animation with:", aiResponse);
-
-        // Make sure current typing is reset before starting
-        setCurrentlyTyping("");
-
-        let index = 0;
-        const responseLength = aiResponse.length;
-
-        const interval = setInterval(() => {
-            if (index < responseLength) {
-                setCurrentlyTyping((prev) => {
-                    const nextChar = aiResponse.charAt(index);
-                    const updated = prev + nextChar;
-                    console.log(
-                        `[Debug] Typing character ${index}: '${nextChar}', current: '${updated}'`
-                    );
-                    return updated;
-                });
-                index++;
-            } else {
-                console.log("[Debug] Typing complete, updating messages");
-                clearInterval(interval);
-
-                // Add the complete message to conversation
-                setMessages((prev) => [
-                    ...prev.slice(0, prev.length - 1),
-                    { role: "assistant", content: aiResponse },
-                ]);
-
-                setAiResponse("");
-                setCurrentlyTyping("");
-            }
-        }, 25); // Slightly slower typing for better visibility
-
-        return () => clearInterval(interval);
-    }, [aiResponse, isTypingPaused]);
 
     return {
         isProcessing,
