@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
 // Import components
@@ -44,6 +44,11 @@ function App() {
         startTypingAnimation,
     } = useClaudeApi(claudeApiKey);
 
+    // Track which message is currently playing
+    const [activePlayingIndex, setActivePlayingIndex] = useState<number | null>(
+        null
+    );
+
     // Speech-to-text functionality
     const {
         isListening,
@@ -66,12 +71,35 @@ function App() {
         setTimeout(() => clearTranscript(), 500);
     };
 
-    // Text-to-speech functionality
-    const { isSpeaking, textToSpeech, stopSpeaking } = useTextToSpeech(
+    // Text-to-speech functionality with extension to track active message
+    const {
+        isSpeaking,
+        textToSpeech: originalTextToSpeech,
+        stopSpeaking: originalStopSpeaking,
+    } = useTextToSpeech(
         deepgramApiKey,
         selectedVoice,
         startTypingAnimation // Pass the function to start typing when audio starts
     );
+
+    // Wrapper for textToSpeech that tracks which message is playing
+    const textToSpeech = (text: string, messageId: number) => {
+        setActivePlayingIndex(messageId);
+        return originalTextToSpeech(text);
+    };
+
+    // Wrapper for stopSpeaking that clears the active message
+    const stopSpeaking = () => {
+        setActivePlayingIndex(null);
+        originalStopSpeaking();
+    };
+
+    // Reset active playing index when speech stops
+    useEffect(() => {
+        if (!isSpeaking) {
+            setActivePlayingIndex(null);
+        }
+    }, [isSpeaking]);
 
     // Track if we're already processing a TTS request
     const processingTtsRef = useRef(false);
@@ -79,6 +107,7 @@ function App() {
     // Synchronize audio playback with text display
     useEffect(() => {
         const lastMessage = messages[messages.length - 1];
+        const lastMessageIndex = messages.length - 1;
 
         // Only process if it's an assistant message with content and we're not already processing a TTS request
         if (
@@ -93,10 +122,12 @@ function App() {
 
             // Slight delay to allow typing to start first
             setTimeout(() => {
-                textToSpeech(lastMessage.content).finally(() => {
-                    // Reset the processing flag once done
-                    processingTtsRef.current = false;
-                });
+                textToSpeech(lastMessage.content, lastMessageIndex).finally(
+                    () => {
+                        // Reset the processing flag once done
+                        processingTtsRef.current = false;
+                    }
+                );
             }, 50);
         }
     }, [messages, textToSpeech, startTypingAnimation]);
@@ -190,6 +221,7 @@ function App() {
                                     isProcessing={isProcessing}
                                     onTextToSpeech={textToSpeech}
                                     stopSpeaking={stopSpeaking}
+                                    activePlayingIndex={activePlayingIndex}
                                 />
                             ))}
                         </div>

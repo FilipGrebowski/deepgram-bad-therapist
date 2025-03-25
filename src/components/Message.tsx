@@ -9,8 +9,9 @@ interface MessageProps {
     currentlyTyping: string;
     isSpeaking: boolean;
     isProcessing: boolean;
-    onTextToSpeech: (text: string) => void;
+    onTextToSpeech: (text: string, messageId: number) => void;
     stopSpeaking: () => void;
+    activePlayingIndex: number | null;
 }
 
 /**
@@ -25,10 +26,12 @@ export function Message({
     isProcessing,
     onTextToSpeech,
     stopSpeaking,
+    activePlayingIndex,
 }: MessageProps) {
     const isLastMessage = index === messagesLength - 1;
     const isAssistantMessage = message.role === "assistant";
     const isEmpty = !message.content;
+    const isThisMessagePlaying = activePlayingIndex === index;
 
     return (
         <div
@@ -51,16 +54,16 @@ export function Message({
                 {isAssistantMessage && message.content && (
                     <button
                         className={`speak-button ${
-                            isSpeaking ? "stop-speech" : ""
+                            isThisMessagePlaying ? "stop-speech" : ""
                         }`}
                         onClick={() =>
-                            isSpeaking
+                            isThisMessagePlaying
                                 ? stopSpeaking()
-                                : onTextToSpeech(message.content)
+                                : onTextToSpeech(message.content, index)
                         }
                         disabled={isProcessing}
                     >
-                        {isSpeaking ? "◼" : "🔊"}
+                        {isThisMessagePlaying ? "◼" : "🔊"}
                     </button>
                 )}
             </div>
@@ -70,10 +73,10 @@ export function Message({
                 ) : (
                     message.content
                 )}
-                {isAssistantMessage && isSpeaking && isLastMessage && (
+                {isAssistantMessage && isThisMessagePlaying && (
                     <div className="message-visualizer">
                         <VoiceVisualizer
-                            isActive={isSpeaking}
+                            isActive={true}
                             label=""
                             className="ai-visualizer"
                         />
