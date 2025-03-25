@@ -59,10 +59,15 @@ app.post("/api/tts", async (req, res) => {
                 .json({ error: "Deepgram API key is required" });
         }
 
+        console.log(`Making TTS request with voice: ${voice || "luna"}`);
+
         const response = await axios.post(
             "https://api.deepgram.com/v1/speak",
-            { text, voice: voice || "luna" },
+            { text },
             {
+                params: {
+                    model: voice || "aura-asteria-en",
+                },
                 headers: {
                     Authorization: `Token ${apiKey}`,
                     "Content-Type": "application/json",
@@ -77,7 +82,27 @@ app.post("/api/tts", async (req, res) => {
             format: "audio/mp3",
         });
     } catch (error) {
-        console.error("TTS error:", error.response?.data || error.message);
+        // For error buffers, convert to string
+        if (error.response?.data instanceof Buffer) {
+            try {
+                const errorText = error.response.data.toString("utf8");
+                const errorJson = JSON.parse(errorText);
+                console.error("TTS error:", errorJson);
+                return res.status(error.response.status || 500).json({
+                    error: `Failed to convert text to speech: ${
+                        errorJson.err_msg || "Unknown error"
+                    }`,
+                });
+            } catch (e) {
+                console.error(
+                    "TTS error (raw):",
+                    error.response.data.toString("utf8")
+                );
+            }
+        } else {
+            console.error("TTS error:", error.response?.data || error.message);
+        }
+
         res.status(500).json({ error: "Failed to convert text to speech" });
     }
 });

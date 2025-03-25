@@ -40,5 +40,5 @@ export interface ApiKeys {
 export interface VoiceModel {
     id: string;
     name: string;
-    model: string;
+    language?: string;
 }
