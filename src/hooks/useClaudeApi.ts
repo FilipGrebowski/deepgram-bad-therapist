@@ -50,7 +50,8 @@ export function useClaudeApi(apiKey: string) {
                 return;
             }
 
-            if (!apiKey) {
+            // Make sure we have an API key or are using environment-provided key
+            if (!apiKey && apiKey !== "ENVIRONMENT_PROVIDED") {
                 alert("Please enter your Claude API key");
                 return;
             }

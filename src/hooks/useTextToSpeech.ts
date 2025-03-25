@@ -78,10 +78,16 @@ export function useTextToSpeech(
     const textToSpeech = useCallback(
         async (text: string) => {
             // Prevent multiple simultaneous requests
-            if (requestInFlightRef.current || !apiKey || !text.trim()) {
+            if (requestInFlightRef.current || !text.trim()) {
                 console.log(
                     "Rejecting TTS request - already in progress or invalid params"
                 );
+                return Promise.resolve();
+            }
+
+            // Make sure we have an API key or are using environment-provided key
+            if (!apiKey && apiKey !== "ENVIRONMENT_PROVIDED") {
+                console.error("No Deepgram API key provided");
                 return Promise.resolve();
             }
 

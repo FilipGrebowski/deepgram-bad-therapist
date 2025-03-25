@@ -33,18 +33,31 @@ app.get("/api/models", (req, res) => {
 });
 
 app.get("/api/keys", (req, res) => {
+    // Check if we're in a Netlify production environment
+    const isProduction = process.env.NETLIFY === "true";
+
+    // Always provide keys in production to skip user input
     res.json({
-        deepgramApiKey: process.env.DEEPGRAM_API_KEY || "",
-        claudeApiKey: process.env.CLAUDE_API_KEY || "",
+        deepgramApiKey: isProduction
+            ? "ENVIRONMENT_PROVIDED"
+            : process.env.DEEPGRAM_API_KEY || "",
+        claudeApiKey: isProduction
+            ? "ENVIRONMENT_PROVIDED"
+            : process.env.CLAUDE_API_KEY || "",
     });
 });
 
 app.post("/api/tts", async (req, res) => {
     try {
-        const { text, apiKey, voice } = req.body;
+        let { text, apiKey, voice } = req.body;
 
         if (!text) {
             return res.status(400).json({ error: "Text is required" });
+        }
+
+        // Use environment variable if the client indicates we should
+        if (apiKey === "ENVIRONMENT_PROVIDED") {
+            apiKey = process.env.DEEPGRAM_API_KEY;
         }
 
         if (!apiKey) {
@@ -105,10 +118,15 @@ app.post("/api/tts", async (req, res) => {
 
 app.post("/api/chat", async (req, res) => {
     try {
-        const { message, apiKey, previousMessages } = req.body;
+        let { message, apiKey, previousMessages } = req.body;
 
         if (!message) {
             return res.status(400).json({ error: "Message is required" });
+        }
+
+        // Use environment variable if the client indicates we should
+        if (apiKey === "ENVIRONMENT_PROVIDED") {
+            apiKey = process.env.CLAUDE_API_KEY;
         }
 
         if (!apiKey) {

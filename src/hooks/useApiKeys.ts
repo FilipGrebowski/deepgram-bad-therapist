@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { ApiKeys } from "../types";
 
 // API URL that works in both development and production
@@ -15,25 +15,33 @@ export function useApiKeys() {
     const [isLoadingKeys, setIsLoadingKeys] = useState<boolean>(true);
 
     /**
-     * Load API keys from server on mount
+     * Load API keys from the environment on component mount
      */
     useEffect(() => {
         const loadApiKeys = async () => {
             try {
+                setIsLoadingKeys(true);
                 const response = await fetch(`${API_URL}/api/keys`);
-                if (response.ok) {
-                    const data: ApiKeys = await response.json();
-                    if (data.deepgramApiKey)
-                        setDeepgramApiKey(data.deepgramApiKey);
-                    if (data.claudeApiKey) setClaudeApiKey(data.claudeApiKey);
 
-                    // Auto-submit if both keys are available
+                if (response.ok) {
+                    const data = await response.json();
+
+                    // If the server provides non-empty keys, use them and skip the form
                     if (data.deepgramApiKey && data.claudeApiKey) {
+                        setDeepgramApiKey(data.deepgramApiKey);
+                        setClaudeApiKey(data.claudeApiKey);
                         setKeysSubmitted(true);
+                        console.log("API keys loaded from server environment");
+                    } else {
+                        console.log(
+                            "Server didn't provide API keys, showing input form"
+                        );
                     }
+                } else {
+                    console.error("Failed to load API keys from server");
                 }
             } catch (error) {
-                console.error("Failed to load API keys:", error);
+                console.error("Error loading API keys:", error);
             } finally {
                 setIsLoadingKeys(false);
             }
@@ -43,15 +51,15 @@ export function useApiKeys() {
     }, []);
 
     /**
-     * Handle submission of API keys
+     * Handle form submission of API keys
      */
-    const handleSubmitKeys = useCallback(() => {
-        if (deepgramApiKey.trim() && claudeApiKey.trim()) {
+    const handleSubmitKeys = () => {
+        if (deepgramApiKey && claudeApiKey) {
             setKeysSubmitted(true);
         } else {
-            alert("Please enter valid API keys for both services");
+            alert("Please enter both API keys");
         }
-    }, [deepgramApiKey, claudeApiKey]);
+    };
 
     return {
         deepgramApiKey,
