@@ -20,6 +20,7 @@ export function useTextToSpeech(
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const timeoutRef = useRef<number | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
+    const requestInFlightRef = useRef<boolean>(false); // Track if a request is currently in progress
 
     // Initialize audio element
     useEffect(() => {
@@ -66,6 +67,9 @@ export function useTextToSpeech(
                 console.error("Error stopping audio playback:", e);
             }
         }
+
+        // Reset the request in flight flag
+        requestInFlightRef.current = false;
     }, []);
 
     /**
@@ -73,11 +77,18 @@ export function useTextToSpeech(
      */
     const textToSpeech = useCallback(
         async (text: string) => {
-            if (!apiKey || !text.trim()) {
+            // Prevent multiple simultaneous requests
+            if (requestInFlightRef.current || !apiKey || !text.trim()) {
+                console.log(
+                    "Rejecting TTS request - already in progress or invalid params"
+                );
                 return Promise.resolve();
             }
 
             try {
+                // Mark that we have a request in flight
+                requestInFlightRef.current = true;
+
                 // Stop any existing audio first
                 stopPlayback();
 
@@ -94,6 +105,7 @@ export function useTextToSpeech(
                 timeoutRef.current = window.setTimeout(() => {
                     console.log("Audio playback timeout - resetting state");
                     setIsSpeaking(false);
+                    requestInFlightRef.current = false;
                     if (onPlaybackStarted) {
                         onPlaybackStarted();
                     }
@@ -119,6 +131,7 @@ export function useTextToSpeech(
                 if (!response.ok) {
                     console.error("TTS request failed:", response.statusText);
                     setIsSpeaking(false);
+                    requestInFlightRef.current = false;
                     return Promise.resolve();
                 }
 
@@ -151,6 +164,7 @@ export function useTextToSpeech(
                     audioRef.current.onended = () => {
                         console.log("Audio ended callback called");
                         setIsSpeaking(false);
+                        requestInFlightRef.current = false;
                         // Clear references to prevent memory leaks
                         audioRef.current = null;
                     };
@@ -158,6 +172,7 @@ export function useTextToSpeech(
                     audioRef.current.onerror = (e) => {
                         console.error("Audio playback error:", e);
                         setIsSpeaking(false);
+                        requestInFlightRef.current = false;
                         audioRef.current = null;
                     };
 
@@ -169,6 +184,7 @@ export function useTextToSpeech(
                         timeoutRef.current = window.setTimeout(() => {
                             console.log("Safety timeout reached, forcing stop");
                             setIsSpeaking(false);
+                            requestInFlightRef.current = false;
                             stopPlayback();
                         }, approxDuration + 3000); // Add buffer time
 
@@ -177,17 +193,20 @@ export function useTextToSpeech(
                     } catch (playError) {
                         console.error("Audio play error:", playError);
                         setIsSpeaking(false);
+                        requestInFlightRef.current = false;
                         audioRef.current = null;
                     }
                 } else {
                     console.error("No audio data returned from TTS API");
                     setIsSpeaking(false);
+                    requestInFlightRef.current = false;
                 }
 
                 return Promise.resolve();
             } catch (error) {
                 console.error("Text-to-speech error:", error);
                 setIsSpeaking(false);
+                requestInFlightRef.current = false;
                 return Promise.reject(error);
             }
         },
@@ -211,6 +230,9 @@ export function useTextToSpeech(
             clearTimeout(timeoutRef.current);
             timeoutRef.current = null;
         }
+
+        // Reset the request in flight flag
+        requestInFlightRef.current = false;
     }, [stopPlayback]);
 
     return {

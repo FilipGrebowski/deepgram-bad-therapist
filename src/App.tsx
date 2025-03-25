@@ -103,18 +103,25 @@ function App() {
 
     // Track if we're already processing a TTS request
     const processingTtsRef = useRef(false);
+    const lastProcessedMessageRef = useRef<string | null>(null);
 
     // Synchronize audio playback with text display
     useEffect(() => {
         const lastMessage = messages[messages.length - 1];
         const lastMessageIndex = messages.length - 1;
 
-        // Only process if it's an assistant message with content and we're not already processing a TTS request
+        // Only process if:
+        // 1. It's an assistant message with content
+        // 2. We're not already processing a TTS request
+        // 3. We haven't already processed this exact message
         if (
             lastMessage?.role === "assistant" &&
             lastMessage.content &&
-            !processingTtsRef.current
+            !processingTtsRef.current &&
+            lastMessage.content !== lastProcessedMessageRef.current
         ) {
+            // Store message to prevent reprocessing
+            lastProcessedMessageRef.current = lastMessage.content;
             processingTtsRef.current = true;
 
             // First make sure text appears, then process speech
@@ -122,12 +129,14 @@ function App() {
 
             // Slight delay to allow typing to start first
             setTimeout(() => {
-                textToSpeech(lastMessage.content, lastMessageIndex).finally(
-                    () => {
+                textToSpeech(lastMessage.content, lastMessageIndex)
+                    .catch((error) =>
+                        console.error("TTS playback error:", error)
+                    )
+                    .finally(() => {
                         // Reset the processing flag once done
                         processingTtsRef.current = false;
-                    }
-                );
+                    });
             }, 50);
         }
     }, [messages, textToSpeech, startTypingAnimation]);

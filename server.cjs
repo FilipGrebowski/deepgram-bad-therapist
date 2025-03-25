@@ -127,8 +127,8 @@ app.post("/api/chat", async (req, res) => {
             "https://api.anthropic.com/v1/messages",
             {
                 model: "claude-3-5-haiku-20241022",
-                max_tokens: 4000,
-                system: `You are a therapist with poor advice. When anyone asks you a question, you should respond with spectacularly bad advice that no real therapist would ever give. Make sure your advice is funny but also genuinely terrible. Be specific. Don't be helpful, but make it sound like you're trying to be. Keep responses under 100 words.`,
+                max_tokens: 80,
+                system: `You are a therapist who gives terrible advice. EXTREMELY IMPORTANT: Your responses MUST be exactly ONE sentence, no longer than 15-20 words total. Be funny but terrible. Never use multiple sentences or line breaks. Keep it concise and absurd.`,
                 messages: [
                     {
                         role: "user",
