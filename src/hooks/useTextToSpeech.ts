@@ -19,19 +19,13 @@ export function useTextToSpeech(
     const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const timeoutRef = useRef<number | null>(null);
+    const audioContextRef = useRef<AudioContext | null>(null);
 
     // Initialize audio element
     useEffect(() => {
-        audioRef.current = new Audio();
-        audioRef.current.onended = () => {
-            setIsSpeaking(false);
-        };
-
+        // Clean up function to ensure we properly release audio resources
         return () => {
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current = null;
-            }
+            stopPlayback();
 
             // Clean up any remaining timeouts
             if (timeoutRef.current) {
@@ -39,6 +33,39 @@ export function useTextToSpeech(
                 timeoutRef.current = null;
             }
         };
+    }, []);
+
+    // Helper to stop any ongoing playback
+    const stopPlayback = useCallback(() => {
+        // Stop any existing audio
+        if (audioRef.current) {
+            try {
+                // Properly end the current audio playback
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+                audioRef.current.src = "";
+
+                // Remove event listeners
+                audioRef.current.onplay = null;
+                audioRef.current.onended = null;
+                audioRef.current.onerror = null;
+
+                // Cleanup audio context if exists
+                if (
+                    audioContextRef.current &&
+                    audioContextRef.current.state !== "closed"
+                ) {
+                    try {
+                        audioContextRef.current.close();
+                    } catch (e) {
+                        console.error("Error closing audio context:", e);
+                    }
+                    audioContextRef.current = null;
+                }
+            } catch (e) {
+                console.error("Error stopping audio playback:", e);
+            }
+        }
     }, []);
 
     /**
@@ -51,6 +78,10 @@ export function useTextToSpeech(
             }
 
             try {
+                // Stop any existing audio first
+                stopPlayback();
+
+                // Set speaking state
                 setIsSpeaking(true);
 
                 // Clear any existing timeout
@@ -58,16 +89,15 @@ export function useTextToSpeech(
                     clearTimeout(timeoutRef.current);
                 }
 
-                // Set a fallback timeout to start typing animation
-                // even if audio fails to play or takes too long
+                // Set a fallback timeout to reset speaking state
+                // in case audio fails to load or play
                 timeoutRef.current = window.setTimeout(() => {
-                    console.log(
-                        "Audio playback timeout - starting typing animation anyway"
-                    );
+                    console.log("Audio playback timeout - resetting state");
+                    setIsSpeaking(false);
                     if (onPlaybackStarted) {
                         onPlaybackStarted();
                     }
-                }, 2000); // 2 second fallback
+                }, 10000); // 10 second fallback
 
                 // Start the typing animation immediately for better responsiveness
                 if (onPlaybackStarted) {
@@ -88,7 +118,6 @@ export function useTextToSpeech(
 
                 if (!response.ok) {
                     console.error("TTS request failed:", response.statusText);
-                    // We've already started the typing animation, so just continue
                     setIsSpeaking(false);
                     return Promise.resolve();
                 }
@@ -96,17 +125,22 @@ export function useTextToSpeech(
                 const data = await response.json();
 
                 if (data.audio) {
-                    // Stop any existing audio
-                    if (audioRef.current) {
-                        audioRef.current.pause();
-                    }
-
-                    // Create audio blob and play
+                    // Create a new audio element each time
                     const audioSrc = `data:${data.format};base64,${data.audio}`;
+
+                    // Clean previous audio if exists
+                    stopPlayback();
+
+                    // Create new audio element
                     audioRef.current = new Audio(audioSrc);
 
                     // Configure audio event handlers
+                    audioRef.current.onload = () => {
+                        console.log("Audio loaded");
+                    };
+
                     audioRef.current.onplay = () => {
+                        console.log("Audio playback started");
                         // Clear the fallback timeout since audio is now playing
                         if (timeoutRef.current) {
                             clearTimeout(timeoutRef.current);
@@ -115,21 +149,35 @@ export function useTextToSpeech(
                     };
 
                     audioRef.current.onended = () => {
-                        console.log("Audio playback ended naturally");
+                        console.log("Audio ended callback called");
                         setIsSpeaking(false);
+                        // Clear references to prevent memory leaks
+                        audioRef.current = null;
                     };
 
                     audioRef.current.onerror = (e) => {
                         console.error("Audio playback error:", e);
                         setIsSpeaking(false);
+                        audioRef.current = null;
                     };
 
                     try {
+                        // Setup a safety timeout to ensure speaking state gets reset
+                        // even if onended doesn't fire for some reason
+                        const approxDuration =
+                            Math.max(5, Math.ceil(text.length / 15)) * 1000;
+                        timeoutRef.current = window.setTimeout(() => {
+                            console.log("Safety timeout reached, forcing stop");
+                            setIsSpeaking(false);
+                            stopPlayback();
+                        }, approxDuration + 3000); // Add buffer time
+
+                        // Start audio playback
                         await audioRef.current.play();
                     } catch (playError) {
                         console.error("Audio play error:", playError);
-                        // We've already started the typing animation, so just continue
                         setIsSpeaking(false);
+                        audioRef.current = null;
                     }
                 } else {
                     console.error("No audio data returned from TTS API");
@@ -143,7 +191,7 @@ export function useTextToSpeech(
                 return Promise.reject(error);
             }
         },
-        [apiKey, selectedVoice, onPlaybackStarted]
+        [apiKey, selectedVoice, onPlaybackStarted, stopPlayback]
     );
 
     /**
@@ -152,25 +200,18 @@ export function useTextToSpeech(
     const stopSpeaking = useCallback(() => {
         console.log("Stop speaking called");
 
-        // Force isSpeaking to false regardless of audio state
+        // Force isSpeaking to false immediately
         setIsSpeaking(false);
 
-        // Attempt to pause and reset any playing audio
-        if (audioRef.current) {
-            try {
-                audioRef.current.pause();
-                audioRef.current.currentTime = 0;
-            } catch (e) {
-                console.error("Error stopping audio playback:", e);
-            }
-        }
+        // Stop any playback
+        stopPlayback();
 
         // Clear any pending timeouts
         if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
             timeoutRef.current = null;
         }
-    }, []);
+    }, [stopPlayback]);
 
     return {
         isSpeaking,

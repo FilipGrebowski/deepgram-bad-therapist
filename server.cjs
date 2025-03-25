@@ -2,16 +2,19 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
+const bodyParser = require("body-parser");
+const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3002;
 
 // Enable CORS for all routes
 app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json({ limit: "50mb" }));
+app.use(express.static(path.join(__dirname, "dist")));
 
 // Available Claude models to try in order of preference
 const CLAUDE_MODELS = [
-    "claude-3-5-sonnet-20240620", // Claude 3.5 Sonnet
+    "claude-3-5-haiku-20241022", // Claude 3.5 Haiku for fast responses
 ];
 
 // Available Deepgram voice models
@@ -28,176 +31,114 @@ const DEEPGRAM_VOICES = [
     { id: "helios", name: "Helios (Male UK)", model: "aura-helios-en" },
 ];
 
-// Proxy endpoint for Claude API
-app.post("/api/claude", async (req, res) => {
-    try {
-        const { apiKey, message, systemPrompt } = req.body;
-        const claudeApiKey = apiKey || process.env.CLAUDE_API_KEY;
-
-        if (!claudeApiKey || !message) {
-            return res
-                .status(400)
-                .json({ error: "API key and message are required" });
-        }
-
-        console.log("Making request to Claude 3.5 Sonnet...");
-
-        try {
-            const response = await axios.post(
-                "https://api.anthropic.com/v1/messages",
-                {
-                    model: "claude-3-5-sonnet-20240620", // Claude 3.5 Sonnet
-                    max_tokens: 1000,
-                    system:
-                        systemPrompt ||
-                        `You are a terrible therapist who gives absurd, comically bad advice. Your advice should be funny, ridiculous, and clearly not meant to be followed, but NEVER harmful, violent, or unethical.
-
-CONTENT GUIDELINES:
-1. Be silly and ridiculous, not dark or harmful
-2. Avoid references to gore, violence, self-harm, or anything unethical
-3. Focus on comically impractical, funny solutions
-4. Use humor that's goofy and absurd, not mean-spirited
-
-STRICT FORMATTING REQUIREMENTS:
-1. ALWAYS respond with EXACTLY 1-2 sentences MAXIMUM - this is critically important
-2. Keep responses extremely brief and to the point - never more than 20-30 words total
-3. Be snappy and funny with hilariously impractical advice
-4. Use casual, conversational language
-5. Occasionally use dramatic pauses or emphasis`,
-                    messages: [
-                        {
-                            role: "user",
-                            content: message,
-                        },
-                    ],
-                },
-                {
-                    headers: {
-                        "Content-Type": "application/json",
-                        "x-api-key": claudeApiKey,
-                        "anthropic-version": "2023-06-01",
-                    },
-                }
-            );
-
-            console.log("Success with Claude 3.5 Sonnet!");
-            return res.json(response.data);
-        } catch (error) {
-            console.error("Error with Claude 3.5 Sonnet:", error.message);
-
-            if (error.response?.data) {
-                console.error(
-                    "Error details:",
-                    JSON.stringify(error.response.data, null, 2)
-                );
-            }
-
-            res.status(error.response?.status || 500).json({
-                error:
-                    error.response?.data?.error?.message ||
-                    "Failed to get response from Claude 3.5 Sonnet. Please check your API key and try again.",
-            });
-        }
-    } catch (error) {
-        console.error(
-            "Error calling Claude API:",
-            error.response?.data || error.message
-        );
-
-        // Better error logging
-        if (error.response?.data) {
-            console.error(
-                "Error details:",
-                JSON.stringify(error.response.data, null, 2)
-            );
-        }
-
-        res.status(error.response?.status || 500).json({
-            error:
-                error.response?.data?.error?.message ||
-                "Failed to get response from Claude",
-        });
-    }
+// Routes
+app.get("/api/models", (req, res) => {
+    res.json({
+        claude: CLAUDE_MODELS,
+    });
 });
 
-// Text-to-Speech endpoint using Deepgram API
-app.post("/api/tts", async (req, res) => {
-    try {
-        const { text, apiKey, voice } = req.body;
-        const deepgramApiKey = apiKey || process.env.DEEPGRAM_API_KEY;
-
-        if (!deepgramApiKey || !text) {
-            return res
-                .status(400)
-                .json({ error: "API key and text are required" });
-        }
-
-        // Find the selected voice or default to Luna
-        let selectedVoice =
-            DEEPGRAM_VOICES.find((v) => v.id === voice) || DEEPGRAM_VOICES[0];
-        console.log(
-            `Making request to Deepgram TTS API using voice: ${selectedVoice.name}`
-        );
-
-        // Create a clean request payload with only the text parameter
-        const requestPayload = { text };
-
-        const response = await axios({
-            method: "post",
-            url: `https://api.deepgram.com/v1/speak?model=${selectedVoice.model}`,
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Token ${deepgramApiKey}`,
-            },
-            data: requestPayload,
-            responseType: "arraybuffer",
-            validateStatus: function (status) {
-                return status < 500;
-            },
-        });
-
-        // Check if the response is an error (not binary audio data)
-        if (response.status !== 200) {
-            // Convert buffer to string and parse as JSON if it's an error
-            const errorText = Buffer.from(response.data).toString("utf8");
-            try {
-                const errorJson = JSON.parse(errorText);
-                console.error("Deepgram TTS API error:", errorJson);
-                return res.status(response.status).json({
-                    error: errorJson.err_msg || "Failed to generate speech",
-                });
-            } catch (e) {
-                console.error("Could not parse error response:", errorText);
-                return res.status(response.status).json({
-                    error: "Failed to generate speech",
-                });
-            }
-        }
-
-        console.log("Received audio response from Deepgram TTS API");
-
-        // Send back audio as base64 for the browser to play
-        const base64Audio = Buffer.from(response.data).toString("base64");
-
-        res.json({
-            audio: base64Audio,
-            format: "audio/mpeg",
-        });
-    } catch (error) {
-        console.error("Error calling Deepgram TTS API:", error.message);
-
-        res.status(500).json({
-            error: "Failed to generate speech: " + error.message,
-        });
-    }
-});
-
-// Endpoint to fetch API keys from .env
 app.get("/api/keys", (req, res) => {
     res.json({
         deepgramApiKey: process.env.DEEPGRAM_API_KEY || "",
         claudeApiKey: process.env.CLAUDE_API_KEY || "",
     });
+});
+
+app.post("/api/tts", async (req, res) => {
+    try {
+        const { text, apiKey, voice } = req.body;
+
+        if (!text) {
+            return res.status(400).json({ error: "Text is required" });
+        }
+
+        if (!apiKey) {
+            return res
+                .status(400)
+                .json({ error: "Deepgram API key is required" });
+        }
+
+        const response = await axios.post(
+            "https://api.deepgram.com/v1/speak",
+            { text, voice: voice || "luna" },
+            {
+                headers: {
+                    Authorization: `Token ${apiKey}`,
+                    "Content-Type": "application/json",
+                },
+                responseType: "arraybuffer",
+            }
+        );
+
+        const base64Audio = Buffer.from(response.data).toString("base64");
+        res.json({
+            audio: base64Audio,
+            format: "audio/mp3",
+        });
+    } catch (error) {
+        console.error("TTS error:", error.response?.data || error.message);
+        res.status(500).json({ error: "Failed to convert text to speech" });
+    }
+});
+
+app.post("/api/chat", async (req, res) => {
+    try {
+        const { message, apiKey } = req.body;
+
+        if (!message) {
+            return res.status(400).json({ error: "Message is required" });
+        }
+
+        if (!apiKey) {
+            return res
+                .status(400)
+                .json({ error: "Claude API key is required" });
+        }
+
+        console.log("Making request to Claude 3.5 Haiku...");
+
+        const response = await axios.post(
+            "https://api.anthropic.com/v1/messages",
+            {
+                model: "claude-3-5-haiku-20241022",
+                max_tokens: 4000,
+                messages: [
+                    {
+                        role: "system",
+                        content: `You are a therapist with poor advice. When anyone asks you a question, you should respond with spectacularly bad advice that no real therapist would ever give. Make sure your advice is funny but also genuinely terrible. Be specific. Don't be helpful, but make it sound like you're trying to be. Keep responses under 100 words.`,
+                    },
+                    {
+                        role: "user",
+                        content: message,
+                    },
+                ],
+            },
+            {
+                headers: {
+                    "x-api-key": apiKey,
+                    "anthropic-version": "2023-06-01",
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+
+        console.log("Claude 3.5 Haiku responded successfully");
+        res.json({
+            reply: response.data.content[0].text,
+        });
+    } catch (error) {
+        console.error(
+            "Claude 3.5 Haiku API error:",
+            error.response?.data || error.message
+        );
+        res.status(500).json({ error: "Failed to get response from Claude" });
+    }
+});
+
+// Catch-all handler for SPA
+app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
 // Endpoint to get available voice models
@@ -213,5 +154,5 @@ app.get("/api/health", (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Proxy server running on http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
