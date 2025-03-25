@@ -1,0 +1,18 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  
+[build.environment]
+  NODE_VERSION = "18"
+
+# Redirect all API requests to the server
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# Redirect all other requests to index.html for SPA
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200 
