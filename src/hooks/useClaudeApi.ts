@@ -71,7 +71,7 @@ export function useClaudeApi(apiKey: string) {
                 setMessages((prev) => [...prev, userMessage]);
 
                 // Get response from Claude through our proxy server
-                const response = await fetch(`${API_URL}/api/claude`, {
+                const response = await fetch(`${API_URL}/api/chat`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -79,7 +79,6 @@ export function useClaudeApi(apiKey: string) {
                     body: JSON.stringify({
                         apiKey,
                         message: transcript,
-                        systemPrompt: DEFAULT_SYSTEM_PROMPT,
                     }),
                 });
 
@@ -93,8 +92,8 @@ export function useClaudeApi(apiKey: string) {
                 const data = await response.json();
 
                 // Add the AI's response to the conversation
-                if (data?.content?.[0]?.text) {
-                    const aiResponseText = data.content[0].text;
+                if (data?.reply) {
+                    const aiResponseText = data.reply;
 
                     // Add a placeholder for the typing animation
                     setMessages((prev) => [

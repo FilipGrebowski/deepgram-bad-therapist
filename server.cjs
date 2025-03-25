@@ -128,11 +128,8 @@ app.post("/api/chat", async (req, res) => {
             {
                 model: "claude-3-5-haiku-20241022",
                 max_tokens: 4000,
+                system: `You are a therapist with poor advice. When anyone asks you a question, you should respond with spectacularly bad advice that no real therapist would ever give. Make sure your advice is funny but also genuinely terrible. Be specific. Don't be helpful, but make it sound like you're trying to be. Keep responses under 100 words.`,
                 messages: [
-                    {
-                        role: "system",
-                        content: `You are a therapist with poor advice. When anyone asks you a question, you should respond with spectacularly bad advice that no real therapist would ever give. Make sure your advice is funny but also genuinely terrible. Be specific. Don't be helpful, but make it sound like you're trying to be. Keep responses under 100 words.`,
-                    },
                     {
                         role: "user",
                         content: message,
