@@ -102,11 +102,16 @@ export function useClaudeApi(apiKey: string) {
                         { role: "assistant", content: "" },
                     ]);
 
-                    // Set the AI response to trigger the typing effect
-                    setAiResponse(aiResponseText);
+                    // Reset the current typing text before setting the new response
+                    setCurrentlyTyping("");
 
-                    // Start typing immediately - DO NOT PAUSE
-                    setIsTypingPaused(false);
+                    // Small delay to ensure state updates properly
+                    setTimeout(() => {
+                        // Set the AI response to trigger the typing effect
+                        setAiResponse(aiResponseText);
+                        // Start typing immediately - DO NOT PAUSE
+                        setIsTypingPaused(false);
+                    }, 10);
                 }
             } catch (error) {
                 console.error("Error getting AI response:", error);
@@ -152,17 +157,19 @@ export function useClaudeApi(apiKey: string) {
 
         console.log("[Debug] Starting typing animation with:", aiResponse);
 
-        let index = 0;
+        // Make sure current typing is reset before starting
         setCurrentlyTyping("");
 
+        let index = 0;
+        const responseLength = aiResponse.length;
+
         const interval = setInterval(() => {
-            if (index < aiResponse.length) {
+            if (index < responseLength) {
                 setCurrentlyTyping((prev) => {
-                    const updated = prev + aiResponse.charAt(index);
+                    const nextChar = aiResponse.charAt(index);
+                    const updated = prev + nextChar;
                     console.log(
-                        `[Debug] Typing character ${index}: '${aiResponse.charAt(
-                            index
-                        )}', current: '${updated}'`
+                        `[Debug] Typing character ${index}: '${nextChar}', current: '${updated}'`
                     );
                     return updated;
                 });
@@ -180,7 +187,7 @@ export function useClaudeApi(apiKey: string) {
                 setAiResponse("");
                 setCurrentlyTyping("");
             }
-        }, 10); // Even faster typing speed to match speech
+        }, 25); // Slightly slower typing for better visibility
 
         return () => clearInterval(interval);
     }, [aiResponse, isTypingPaused]);
