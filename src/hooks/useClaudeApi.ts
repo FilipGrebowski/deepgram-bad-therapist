@@ -37,12 +37,8 @@ export function useClaudeApi(apiKey: string) {
 
     // Add a debug log
     useEffect(() => {
-        console.log("[Debug] Typing state:", {
-            aiResponse,
-            isTypingPaused,
-            currentlyTyping,
-        });
-    }, [aiResponse, isTypingPaused, currentlyTyping]);
+        console.log("[Debug] Messages state:", messages.length, "messages");
+    }, [messages]);
 
     /**
      * Process transcript through Claude API and get a response
@@ -68,7 +64,18 @@ export function useClaudeApi(apiKey: string) {
                     content: transcript,
                 };
 
-                setMessages((prev) => [...prev, userMessage]);
+                // Update local messages state with the new user message
+                const updatedMessages = [...messages, userMessage];
+                setMessages(updatedMessages);
+
+                // Convert previous messages to Claude's format
+                // Only include the last 10 messages to stay within context limits
+                const recentMessages = updatedMessages
+                    .slice(-10)
+                    .map((msg) => ({
+                        role: msg.role,
+                        content: msg.content,
+                    }));
 
                 // Get response from Claude through our proxy server
                 const response = await fetch(`${API_URL}/api/chat`, {
@@ -79,6 +86,7 @@ export function useClaudeApi(apiKey: string) {
                     body: JSON.stringify({
                         apiKey,
                         message: transcript,
+                        previousMessages: recentMessages,
                     }),
                 });
 
@@ -96,7 +104,6 @@ export function useClaudeApi(apiKey: string) {
                     const aiResponseText = data.reply;
 
                     // Add the message immediately without typing animation
-                    // This will allow the speech to start right away
                     setMessages((prev) => [
                         ...prev,
                         { role: "assistant", content: aiResponseText },
@@ -113,7 +120,7 @@ export function useClaudeApi(apiKey: string) {
                 setIsProcessing(false);
             }
         },
-        [apiKey]
+        [apiKey, messages]
     );
 
     /**

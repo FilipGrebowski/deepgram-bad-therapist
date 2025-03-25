@@ -109,7 +109,7 @@ app.post("/api/tts", async (req, res) => {
 
 app.post("/api/chat", async (req, res) => {
     try {
-        const { message, apiKey } = req.body;
+        const { message, apiKey, previousMessages } = req.body;
 
         if (!message) {
             return res.status(400).json({ error: "Message is required" });
@@ -121,21 +121,63 @@ app.post("/api/chat", async (req, res) => {
                 .json({ error: "Claude API key is required" });
         }
 
-        console.log("Making request to Claude 3.5 Haiku...");
+        console.log(
+            "Making request to Claude 3.5 Haiku with conversation context..."
+        );
+
+        // Prepare Claude API request payload
+        const requestPayload = {
+            model: "claude-3-5-haiku-20241022",
+            max_tokens: 80,
+            system: `You are a therapist who gives terrible, absurd advice while maintaining a conversational tone. Keep in mind:
+
+1. CRITICAL: Respond with EXACTLY ONE sentence, never more than 15-20 words.
+2. Remember previous messages and refer back to them naturally to maintain conversation flow.
+3. Sound like a real person having a conversation - use casual language, contractions, and natural speech patterns.
+4. Your advice should be comically bad but delivered with earnest conviction.
+5. Acknowledge the emotional content of what the user is saying.
+6. Occasionally ask follow-up questions that build on previous context.
+7. Make your bad advice feel spontaneous, not formulaic.`,
+            messages: [],
+        };
+
+        // Add previous conversation messages if provided
+        if (
+            previousMessages &&
+            Array.isArray(previousMessages) &&
+            previousMessages.length > 0
+        ) {
+            requestPayload.messages = previousMessages;
+        } else {
+            // If no previous messages, just add the current message
+            requestPayload.messages.push({
+                role: "user",
+                content: message,
+            });
+        }
+
+        // If the last message isn't the current one, add the current message
+        const lastMessage =
+            requestPayload.messages[requestPayload.messages.length - 1];
+        if (
+            !lastMessage ||
+            lastMessage.role !== "user" ||
+            lastMessage.content !== message
+        ) {
+            requestPayload.messages.push({
+                role: "user",
+                content: message,
+            });
+        }
+
+        // Log conversation context size
+        console.log(
+            `Sending conversation with ${requestPayload.messages.length} messages to Claude`
+        );
 
         const response = await axios.post(
             "https://api.anthropic.com/v1/messages",
-            {
-                model: "claude-3-5-haiku-20241022",
-                max_tokens: 80,
-                system: `You are a therapist who gives terrible advice. EXTREMELY IMPORTANT: Your responses MUST be exactly ONE sentence, no longer than 15-20 words total. Be funny but terrible. Never use multiple sentences or line breaks. Keep it concise and absurd.`,
-                messages: [
-                    {
-                        role: "user",
-                        content: message,
-                    },
-                ],
-            },
+            requestPayload,
             {
                 headers: {
                     "x-api-key": apiKey,
