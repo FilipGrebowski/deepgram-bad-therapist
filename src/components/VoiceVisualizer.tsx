@@ -18,7 +18,9 @@ export function VoiceVisualizer({
     label,
     className,
 }: VoiceVisualizerProps) {
-    const [bars, setBars] = useState<number[]>(Array(15).fill(5));
+    // Use fewer bars for the inline AI visualizer
+    const barCount = className === "ai-visualizer" && !label ? 5 : 15;
+    const [bars, setBars] = useState<number[]>(Array(barCount).fill(5));
     const analyzing = useRef<boolean>(false);
     const audioContext = useRef<AudioContext | null>(null);
     const analyzer = useRef<AnalyserNode | null>(null);
@@ -34,7 +36,7 @@ export function VoiceVisualizer({
         }
 
         if (!isActive) {
-            setBars(Array(15).fill(5));
+            setBars(Array(barCount).fill(5));
 
             // Clean up audio analysis
             if (audioContext.current) {
@@ -93,9 +95,13 @@ export function VoiceVisualizer({
 
                 setBars((prev) =>
                     prev.map((_, index) => {
+                        // Calculate the center position based on the array length
+                        const center = (prev.length - 1) / 2;
                         // Create a more dynamic pattern with varying heights
                         const baseHeight = Math.floor(Math.random() * 25) + 5;
-                        const position = Math.abs((index - 7) / 14); // 0-1 based on distance from center
+                        const position = Math.abs(
+                            (index - center) / prev.length
+                        ); // 0-1 based on distance from center
                         const waveEffect =
                             Math.sin(Date.now() / 200 + index) * 10;
 
@@ -111,7 +117,7 @@ export function VoiceVisualizer({
 
             return () => clearInterval(interval);
         }
-    }, [isActive, label]);
+    }, [isActive, label, barCount]);
 
     /**
      * Analyzes audio data and updates the visualization bars
@@ -132,7 +138,8 @@ export function VoiceVisualizer({
         const averageVolume = sum / samplesToUse;
 
         // Use frequency data to update bar heights with more expression
-        const newBars = Array.from({ length: 15 }, (_, index) => {
+        const newBars = Array.from({ length: barCount }, (_, index) => {
+            const center = (barCount - 1) / 2;
             // Get the corresponding data point, or use average if not available
             const dataPoint =
                 index < dataArrayRef.length
@@ -146,7 +153,8 @@ export function VoiceVisualizer({
             const waveEffect = Math.sin(Date.now() / 500 + index) * 3;
 
             // Add position-based scaling (center bars are taller)
-            const positionFactor = 1 - Math.abs((index - 7) / 15) * 0.5;
+            const positionFactor =
+                1 - Math.abs((index - center) / barCount) * 0.5;
 
             return Math.max(5, scaledHeight * positionFactor + waveEffect);
         });

@@ -64,9 +64,9 @@ export function useClaudeApi(apiKey: string) {
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
-                        apiKey,
-                        message: transcript,
-                        previousMessages: recentMessages,
+                        messages: recentMessages,
+                        model: "claude-3-5-haiku-20241022",
+                        apiKey: apiKey,
                     }),
                 });
 

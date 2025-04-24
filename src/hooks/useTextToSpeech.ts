@@ -18,9 +18,12 @@ export function useTextToSpeech(
 ) {
     const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const audioSourceRef = useRef<string | null>(null);
     const timeoutRef = useRef<number | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
+    const audioBufferRef = useRef<AudioBuffer | null>(null);
     const requestInFlightRef = useRef<boolean>(false); // Track if a request is currently in progress
+    const audioCache = useRef<Map<string, ArrayBuffer>>(new Map());
 
     // Initialize audio element
     useEffect(() => {
@@ -71,6 +74,96 @@ export function useTextToSpeech(
         // Reset the request in flight flag
         requestInFlightRef.current = false;
     }, []);
+
+    const playEnhancedAudio = useCallback(
+        async (audioArrayBuffer: ArrayBuffer) => {
+            try {
+                // Create a new AudioContext if we don't have one
+                if (!audioContextRef.current) {
+                    // Use modern AudioContext API with fallbacks
+                    const AudioContextClass =
+                        window.AudioContext ||
+                        (window as any).webkitAudioContext;
+                    audioContextRef.current = new AudioContextClass({
+                        // Higher sample rate for better quality
+                        sampleRate: 48000,
+                        latencyHint: "interactive",
+                    });
+                }
+
+                // Resume the audio context if it's suspended
+                if (audioContextRef.current.state === "suspended") {
+                    await audioContextRef.current.resume();
+                }
+
+                // Decode the audio data
+                audioBufferRef.current =
+                    await audioContextRef.current.decodeAudioData(
+                        audioArrayBuffer
+                    );
+
+                // Create a source node
+                const source = audioContextRef.current.createBufferSource();
+                source.buffer = audioBufferRef.current;
+
+                // Create a gain node for volume control
+                const gainNode = audioContextRef.current.createGain();
+                gainNode.gain.value = 1.0; // Normal volume
+
+                // Create a compressor for better audio quality
+                const compressor =
+                    audioContextRef.current.createDynamicsCompressor();
+                compressor.threshold.value = -24;
+                compressor.knee.value = 30;
+                compressor.ratio.value = 12;
+                compressor.attack.value = 0.003;
+                compressor.release.value = 0.25;
+
+                // Create a biquad filter for better clarity
+                const filter = audioContextRef.current.createBiquadFilter();
+                filter.type = "highpass";
+                filter.frequency.value = 100; // Filter out very low frequencies
+
+                // Connect the nodes
+                source.connect(filter);
+                filter.connect(compressor);
+                compressor.connect(gainNode);
+                gainNode.connect(audioContextRef.current.destination);
+
+                // Set up callbacks
+                source.onended = () => {
+                    console.log("Enhanced audio playback ended");
+                    setIsSpeaking(false);
+                    requestInFlightRef.current = false;
+                };
+
+                // Start playback
+                source.start(0);
+                console.log("Enhanced audio playback started");
+
+                // Set up a safety timeout based on the audio duration
+                const duration = audioBufferRef.current.duration;
+                const safetyTimeout = Math.ceil(duration * 1000) + 2000; // Add 2 seconds buffer
+
+                if (timeoutRef.current) {
+                    clearTimeout(timeoutRef.current);
+                }
+
+                timeoutRef.current = window.setTimeout(() => {
+                    console.log("Safety timeout reached, forcing stop");
+                    setIsSpeaking(false);
+                    requestInFlightRef.current = false;
+                    stopPlayback();
+                }, safetyTimeout);
+
+                return true;
+            } catch (error) {
+                console.error("Enhanced audio playback error:", error);
+                return false;
+            }
+        },
+        [stopPlayback]
+    );
 
     /**
      * Convert text to speech and play the resulting audio
@@ -123,6 +216,27 @@ export function useTextToSpeech(
                     onPlaybackStarted();
                 }
 
+                // Generate a cache key based on text and voice
+                const voiceId = selectedVoice || "default";
+                const cacheKey = `${text}_${voiceId}`;
+
+                // Check if we already have this audio in our cache
+                if (audioCache.current.has(cacheKey)) {
+                    console.log("Using cached audio");
+                    const cachedAudio = audioCache.current.get(cacheKey);
+                    if (cachedAudio) {
+                        // Use the enhanced audio player for cached audio
+                        const playbackSuccess = await playEnhancedAudio(
+                            cachedAudio.slice(0)
+                        );
+
+                        if (playbackSuccess) {
+                            return Promise.resolve();
+                        }
+                        // If enhanced playback fails, continue with regular playback as a fallback
+                    }
+                }
+
                 const response = await fetch(`${API_URL}/api/tts`, {
                     method: "POST",
                     headers: {
@@ -146,8 +260,54 @@ export function useTextToSpeech(
                 const data = await response.json();
 
                 if (data.audio) {
-                    // Create a new audio element each time
+                    try {
+                        // Convert base64 to ArrayBuffer
+                        const binaryString = atob(data.audio);
+                        const bytes = new Uint8Array(binaryString.length);
+                        for (let i = 0; i < binaryString.length; i++) {
+                            bytes[i] = binaryString.charCodeAt(i);
+                        }
+                        const audioArrayBuffer = bytes.buffer;
+
+                        // Store in cache for future use
+                        audioCache.current.set(
+                            cacheKey,
+                            audioArrayBuffer.slice(0)
+                        );
+
+                        // Cap the cache size to prevent memory issues
+                        if (audioCache.current.size > 10) {
+                            // Remove the first entry (oldest) using iterators
+                            const firstKey = audioCache.current
+                                .keys()
+                                .next().value;
+                            audioCache.current.delete(firstKey);
+                        }
+
+                        // Try to play using enhanced audio processing
+                        const playbackSuccess = await playEnhancedAudio(
+                            audioArrayBuffer
+                        );
+
+                        if (playbackSuccess) {
+                            return Promise.resolve();
+                        }
+
+                        // Fallback to traditional Audio element if WebAudio API fails
+                        console.log(
+                            "Falling back to traditional audio playback"
+                        );
+                    } catch (processingError) {
+                        console.error(
+                            "Audio processing error:",
+                            processingError
+                        );
+                        // Continue to traditional playback as fallback
+                    }
+
+                    // Create a new audio element as fallback
                     const audioSrc = `data:${data.format};base64,${data.audio}`;
+                    audioSourceRef.current = audioSrc;
 
                     // Clean previous audio if exists
                     stopPlayback();
@@ -156,8 +316,8 @@ export function useTextToSpeech(
                     audioRef.current = new Audio(audioSrc);
 
                     // Configure audio event handlers
-                    audioRef.current.onload = () => {
-                        console.log("Audio loaded");
+                    audioRef.current.oncanplaythrough = () => {
+                        console.log("Audio can play through without buffering");
                     };
 
                     audioRef.current.onplay = () => {
@@ -190,6 +350,9 @@ export function useTextToSpeech(
                         requestInFlightRef.current = false;
                         audioRef.current = null;
                     };
+
+                    // Preload the audio
+                    audioRef.current.preload = "auto";
 
                     // Keep track if we've already started playing
                     let hasStartedPlaying = false;
@@ -239,7 +402,13 @@ export function useTextToSpeech(
                 return Promise.reject(error);
             }
         },
-        [apiKey, selectedVoice, onPlaybackStarted, stopPlayback]
+        [
+            apiKey,
+            selectedVoice,
+            onPlaybackStarted,
+            stopPlayback,
+            playEnhancedAudio,
+        ]
     );
 
     /**

@@ -129,6 +129,7 @@ body {
     max-height: 60vh;
     margin: 0 1rem 1rem 1rem;
     padding-right: 0.5rem;
+    padding-top: 1rem;
     scrollbar-width: thin;
     scrollbar-color: var(--secondary) var(--background);
 }
@@ -178,11 +179,19 @@ body {
     border-radius: var(--radius);
     border: 1px solid var(--border);
     position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.message-text {
+    flex: 1;
 }
 
 .user-message .message-content {
     background-color: var(--primary);
     color: var(--primary-foreground);
+    justify-content: flex-end;
 }
 
 .ai-message .message-content {
@@ -448,4 +457,105 @@ body {
     line-height: 1.5;
     padding: 0.5rem 1.5rem;
     word-break: break-word;
+}
+
+/* Thinking message styling */
+.thinking-message .message-content {
+    opacity: 0.8;
+    font-style: italic;
+}
+
+.thinking-content {
+    color: var(--muted-foreground);
+}
+
+.thinking-dots {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    justify-content: center;
+}
+
+.thinking-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--muted-foreground);
+    animation: thinking-animation 1.4s infinite ease-in-out both;
+}
+
+.thinking-dot:nth-child(1) {
+    animation-delay: -0.32s;
+}
+
+.thinking-dot:nth-child(2) {
+    animation-delay: -0.16s;
+}
+
+@keyframes thinking-animation {
+    0%,
+    80%,
+    100% {
+        transform: scale(0.6);
+    }
+    40% {
+        transform: scale(1);
+    }
+}
+
+/* Inline message visualizer */
+.message-visualizer-inline {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 16px;
+}
+
+.message-visualizer-inline .voice-visualizer {
+    max-width: 40px;
+    height: 40px;
+}
+
+.message-visualizer-inline .thinking-dots {
+    margin-top: 0;
+    flex-direction: column;
+    height: 40px;
+}
+
+.message-visualizer-inline .thinking-dot {
+    width: 6px;
+    height: 6px;
+}
+
+/* Message actions */
+.message-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.download-button {
+    background-color: var(--secondary);
+    border: none;
+    padding: 0.5rem;
+    border-radius: 9999px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    min-width: 2.5rem;
+    height: 2.5rem;
+    color: var(--foreground);
+}
+
+.download-button:hover {
+    background-color: var(--muted);
+}
+
+.download-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }

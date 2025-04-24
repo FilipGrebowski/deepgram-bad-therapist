@@ -7,13 +7,16 @@ const API_URL =
 
 // Default Deepgram voices
 const DEFAULT_VOICES: VoiceModel[] = [
-    { id: "aura-asteria-en", name: "Asteria (Female US)", language: "en" },
-    { id: "aura-athena-en", name: "Athena (Female US)", language: "en" },
-    { id: "aura-aurora-en", name: "Aurora (Female US)", language: "en" },
-    { id: "aura-luna-en", name: "Luna (Female US)", language: "en" },
-    { id: "aura-nova-en", name: "Nova (Female US)", language: "en" },
-    { id: "aura-orion-en", name: "Orion (Male US)", language: "en" },
-    { id: "aura-stella-en", name: "Stella (Female US)", language: "en" },
+    { id: "aura-2-thalia-en", name: "Thalia (Female US)", language: "en" },
+    {
+        id: "aura-2-andromeda-en",
+        name: "Andromeda (Female US)",
+        language: "en",
+    },
+    { id: "aura-2-helena-en", name: "Helena (Female US)", language: "en" },
+    { id: "aura-2-apollo-en", name: "Apollo (Male US)", language: "en" },
+    { id: "aura-2-arcas-en", name: "Arcas (Male US)", language: "en" },
+    { id: "aura-2-aries-en", name: "Aries (Male US)", language: "en" },
 ];
 
 /**
@@ -22,7 +25,9 @@ const DEFAULT_VOICES: VoiceModel[] = [
 export function useVoiceModels() {
     const [availableVoices, setAvailableVoices] =
         useState<VoiceModel[]>(DEFAULT_VOICES);
-    const [selectedVoice, setSelectedVoice] = useState<string>("aura-luna-en");
+    const [selectedVoice, setSelectedVoice] = useState<string>(
+        "aura-2-andromeda-en"
+    );
 
     /**
      * Load available voices from server (if available)
