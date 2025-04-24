@@ -9,8 +9,8 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json({ limit: "50mb" }));
 
-// Deepgram API configuration
-const DEEPGRAM_API_KEY = "50c17529f4617f18f4a3fa29a9ac7e4eec7b9327";
+// Deepgram API configuration - use environment variable if available
+const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY || "";
 
 // Available Claude models
 const CLAUDE_MODELS = [
