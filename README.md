@@ -10,7 +10,7 @@ Visit the live application: [https://deepgram-therapist.netlify.app](https://dee
 
 -   **Speech Recognition** - Speak directly to the therapist using Deepgram's Nova-3 real-time speech-to-text API
 -   **Text-to-Speech** - Listen to the therapist's responses with high-quality Aura-2 voices from Deepgram
--   **Conversational AI** - Powered by Claude 3.5 Haiku, providing realistic-sounding but ultimately harmful advice
+-   **Conversational AI** - Powered by Claude 3.5 Haiku, providing realistic-sounding but ultimately misguided advice
 -   **Conversation Context** - The therapist remembers previous exchanges for a more natural conversation
 -   **Voice Selection** - Choose from multiple voice options for the therapist including Thalia, Andromeda, Helena, Apollo, Arcas, and Aries
 
@@ -77,7 +77,7 @@ The application is deployed on Netlify with serverless functions handling the ba
 ## How It Works
 
 1. **Speech Recognition**: When you speak into your microphone, Deepgram's Nova-3 speech-to-text API transcribes your speech in real-time.
-2. **AI Processing**: Your message is sent to Claude 3.5 Haiku, which responds with realistic-sounding but ultimately harmful or misguided advice in a single concise sentence.
+2. **AI Processing**: Your message is sent to Claude 3.5 Haiku, which responds with realistic-sounding but ultimately misguided advice in a single concise sentence.
 3. **Text-to-Speech**: The AI's response is converted to speech using Deepgram's Aura-2 text-to-speech API and played back.
 4. **Context Maintenance**: The app maintains conversation history so the therapist can reference previous exchanges.
 
@@ -91,21 +91,43 @@ The application is deployed on Netlify with serverless functions handling the ba
 -   `server.cjs` - Local development server
 -   `public/` - Static assets
 
-## System Prompt
+## System Prompt and Customization
 
 The application uses a specific system prompt to generate intentionally misguided therapeutic responses:
 
 ```
-You are a therapist who gives realistic-sounding but ultimately harmful or misguided advice. Keep in mind:
+You are a therapist who gives realistic-sounding but ultimately misguided advice. Keep in mind:
 
 1. CRITICAL: Respond with EXACTLY ONE sentence, never more than 15-20 words.
-2. Your advice should sound professional and plausible at first, but contain a subtle yet harmful twist.
+2. Your advice should sound professional and plausible at first, but contain a subtle yet misguided twist.
 3. Avoid absurd or comedic suggestions like wearing superhero costumes or obviously silly ideas.
-4. Focus on bad advice that someone might actually try to follow: unhealthy coping mechanisms, avoidance strategies, or misapplied psychological concepts.
+4. Focus on advice that someone might actually try to follow but is subtly misguided: ineffective strategies, overgeneralizations, or misapplied psychological concepts.
 5. Use professional-sounding language and therapy terminology to make your advice seem credible.
 6. Remember previous messages for continuity and address the user's specific concerns.
-7. Occasionally ask follow-up questions that relate to your previous bad advice.
+7. Occasionally ask follow-up questions that relate to your previous advice.
 ```
+
+### Customizing the Prompt
+
+You can experiment with different personalities for the therapist by modifying the system prompt. Here's how to change it:
+
+#### For Local Development
+
+1. Open `server.cjs`
+2. Find the `system` field in the `requestPayload` object (around line 170)
+3. Modify the prompt to change the therapist's personality and response style
+
+#### For Netlify Functions
+
+1. Open `netlify/functions/api.js`
+2. Find the `SYSTEM_PROMPT` constant (near the top of the file)
+3. Modify the prompt to your liking
+
+When customizing the prompt, keep the following tips in mind:
+
+-   Maintain the single-sentence response constraint for a better user experience
+-   Keep the word limit (15-20 words) to ensure concise responses
+-   Experiment with different personality traits while maintaining the professional therapist persona
 
 ## License
 
