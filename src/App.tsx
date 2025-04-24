@@ -178,13 +178,15 @@ function App() {
             setIsTherapistThinking(true);
 
             // Start preparing the TTS request in the background
-            // This will cache the audio but not play it yet
             originalTextToSpeech(lastMessage.content)
                 .then(() => {
-                    // Once TTS is prepared, show the message
-                    // We'll play the audio when the user clicks the play button
+                    // Once TTS is prepared, show the message and play audio immediately
                     setIsTherapistThinking(false);
                     setVisibleMessages(apiMessages);
+                    // Play audio automatically once ready
+                    playPreparedAudio(lastMessage.content).then(() => {
+                        setActivePlayingIndex(lastMessageIndex);
+                    });
                     processingTtsRef.current = false;
                 })
                 .catch((error) => {
@@ -195,7 +197,7 @@ function App() {
                     processingTtsRef.current = false;
                 });
         }
-    }, [apiMessages, originalTextToSpeech]);
+    }, [apiMessages, originalTextToSpeech, playPreparedAudio]);
 
     // When speech starts, update visible messages to include the assistant message
     useEffect(() => {

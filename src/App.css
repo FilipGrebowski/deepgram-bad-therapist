@@ -1,11 +1,11 @@
 :root {
-    --background: #fcfcfc;
-    --foreground: #222;
-    --primary: #6561f8;
-    --primary-rgb: 101, 97, 248;
-    --secondary: #f3f3f5;
-    --muted: #e2e2e2;
-    --muted-foreground: #888;
+    --background: #09090b;
+    --foreground: #f8f8f2;
+    --primary: #8b5cf6;
+    --primary-rgb: 139, 92, 246;
+    --secondary: #3f3f46;
+    --muted: #27272a;
+    --muted-foreground: #a1a1aa;
     --danger: #e03535;
     --success: #45c945;
     --border-radius: 0.5rem;
