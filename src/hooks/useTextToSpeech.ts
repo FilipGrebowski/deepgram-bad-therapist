@@ -25,6 +25,9 @@ export function useTextToSpeech(
     const requestInFlightRef = useRef<boolean>(false); // Track if a request is currently in progress
     const audioCache = useRef<Map<string, ArrayBuffer>>(new Map());
 
+    // Cache size increased to store more responses
+    const MAX_CACHE_SIZE = 20;
+
     // Initialize audio element
     useEffect(() => {
         // Clean up function to ensure we properly release audio resources
@@ -166,7 +169,8 @@ export function useTextToSpeech(
     );
 
     /**
-     * Convert text to speech and play the resulting audio
+     * Convert text to speech and prepare the resulting audio
+     * Note: This version doesn't automatically play the audio - it just prepares it
      */
     const textToSpeech = useCallback(
         async (text: string) => {
@@ -191,30 +195,17 @@ export function useTextToSpeech(
                 // Stop any existing audio first
                 stopPlayback();
 
-                // Set speaking state
-                setIsSpeaking(true);
-                console.log("Setting isSpeaking to TRUE");
-
                 // Clear any existing timeout
                 if (timeoutRef.current) {
                     clearTimeout(timeoutRef.current);
                 }
 
-                // Set a fallback timeout to reset speaking state
+                // Set a fallback timeout to reset request state
                 // in case audio fails to load or play
                 timeoutRef.current = window.setTimeout(() => {
-                    console.log("Audio playback timeout - resetting state");
-                    setIsSpeaking(false);
+                    console.log("Audio preparation timeout - resetting state");
                     requestInFlightRef.current = false;
-                    if (onPlaybackStarted) {
-                        onPlaybackStarted();
-                    }
                 }, 10000); // 10 second fallback
-
-                // Start the typing animation immediately for better responsiveness
-                if (onPlaybackStarted) {
-                    onPlaybackStarted();
-                }
 
                 // Generate a cache key based on text and voice
                 const voiceId = selectedVoice || "default";
@@ -224,16 +215,15 @@ export function useTextToSpeech(
                 if (audioCache.current.has(cacheKey)) {
                     console.log("Using cached audio");
                     const cachedAudio = audioCache.current.get(cacheKey);
-                    if (cachedAudio) {
-                        // Use the enhanced audio player for cached audio
-                        const playbackSuccess = await playEnhancedAudio(
-                            cachedAudio.slice(0)
-                        );
 
-                        if (playbackSuccess) {
-                            return Promise.resolve();
+                    if (cachedAudio) {
+                        // Return success - we'll play this later when requested
+                        if (timeoutRef.current) {
+                            clearTimeout(timeoutRef.current);
+                            timeoutRef.current = null;
                         }
-                        // If enhanced playback fails, continue with regular playback as a fallback
+                        requestInFlightRef.current = false;
+                        return Promise.resolve();
                     }
                 }
 
@@ -251,8 +241,6 @@ export function useTextToSpeech(
 
                 if (!response.ok) {
                     console.error("TTS request failed:", response.statusText);
-                    setIsSpeaking(false);
-                    console.log("Setting isSpeaking to FALSE (request failed)");
                     requestInFlightRef.current = false;
                     return Promise.resolve();
                 }
@@ -276,7 +264,7 @@ export function useTextToSpeech(
                         );
 
                         // Cap the cache size to prevent memory issues
-                        if (audioCache.current.size > 10) {
+                        if (audioCache.current.size > MAX_CACHE_SIZE) {
                             // Remove the first entry (oldest) using iterators
                             const firstKey = audioCache.current
                                 .keys()
@@ -284,131 +272,33 @@ export function useTextToSpeech(
                             audioCache.current.delete(firstKey);
                         }
 
-                        // Try to play using enhanced audio processing
-                        const playbackSuccess = await playEnhancedAudio(
-                            audioArrayBuffer
-                        );
-
-                        if (playbackSuccess) {
-                            return Promise.resolve();
+                        // Audio is prepared and cached, but not played yet
+                        if (timeoutRef.current) {
+                            clearTimeout(timeoutRef.current);
+                            timeoutRef.current = null;
                         }
-
-                        // Fallback to traditional Audio element if WebAudio API fails
-                        console.log(
-                            "Falling back to traditional audio playback"
-                        );
+                        requestInFlightRef.current = false;
+                        return Promise.resolve();
                     } catch (processingError) {
                         console.error(
                             "Audio processing error:",
                             processingError
                         );
-                        // Continue to traditional playback as fallback
-                    }
-
-                    // Create a new audio element as fallback
-                    const audioSrc = `data:${data.format};base64,${data.audio}`;
-                    audioSourceRef.current = audioSrc;
-
-                    // Clean previous audio if exists
-                    stopPlayback();
-
-                    // Create new audio element
-                    audioRef.current = new Audio(audioSrc);
-
-                    // Configure audio event handlers
-                    audioRef.current.oncanplaythrough = () => {
-                        console.log("Audio can play through without buffering");
-                    };
-
-                    audioRef.current.onplay = () => {
-                        console.log("Audio playback started");
-                        // Make sure isSpeaking is still true
-                        setIsSpeaking(true);
-                        // Clear the fallback timeout since audio is now playing
-                        if (timeoutRef.current) {
-                            clearTimeout(timeoutRef.current);
-                            timeoutRef.current = null;
-                        }
-                    };
-
-                    audioRef.current.onended = () => {
-                        console.log(
-                            "Audio ended callback called - setting isSpeaking to FALSE"
-                        );
-                        setIsSpeaking(false);
                         requestInFlightRef.current = false;
-                        // Clear references to prevent memory leaks
-                        audioRef.current = null;
-                    };
-
-                    audioRef.current.onerror = (e) => {
-                        console.error("Audio playback error:", e);
-                        console.log(
-                            "Setting isSpeaking to FALSE (playback error)"
-                        );
-                        setIsSpeaking(false);
-                        requestInFlightRef.current = false;
-                        audioRef.current = null;
-                    };
-
-                    // Preload the audio
-                    audioRef.current.preload = "auto";
-
-                    // Keep track if we've already started playing
-                    let hasStartedPlaying = false;
-
-                    try {
-                        // Make sure we're still in speaking state before playing
-                        setIsSpeaking(true);
-
-                        // Setup a safety timeout to ensure speaking state gets reset
-                        // even if onended doesn't fire for some reason
-                        const approxDuration =
-                            Math.max(5, Math.ceil(text.length / 15)) * 1000;
-                        timeoutRef.current = window.setTimeout(() => {
-                            console.log("Safety timeout reached, forcing stop");
-                            setIsSpeaking(false);
-                            requestInFlightRef.current = false;
-                            stopPlayback();
-                        }, approxDuration + 3000); // Add buffer time
-
-                        // Start audio playback
-                        await audioRef.current.play();
-                        hasStartedPlaying = true;
-                    } catch (playError) {
-                        console.error("Audio play error:", playError);
-                        if (!hasStartedPlaying) {
-                            console.log(
-                                "Setting isSpeaking to FALSE (play failed)"
-                            );
-                            setIsSpeaking(false);
-                            requestInFlightRef.current = false;
-                            audioRef.current = null;
-                        }
+                        return Promise.resolve();
                     }
                 } else {
                     console.error("No audio data returned from TTS API");
-                    console.log("Setting isSpeaking to FALSE (no audio data)");
-                    setIsSpeaking(false);
                     requestInFlightRef.current = false;
+                    return Promise.resolve();
                 }
-
-                return Promise.resolve();
             } catch (error) {
                 console.error("Text-to-speech error:", error);
-                console.log("Setting isSpeaking to FALSE (general error)");
-                setIsSpeaking(false);
                 requestInFlightRef.current = false;
                 return Promise.reject(error);
             }
         },
-        [
-            apiKey,
-            selectedVoice,
-            onPlaybackStarted,
-            stopPlayback,
-            playEnhancedAudio,
-        ]
+        [apiKey, selectedVoice, stopPlayback]
     );
 
     /**
@@ -433,9 +323,159 @@ export function useTextToSpeech(
         requestInFlightRef.current = false;
     }, [stopPlayback]);
 
+    // Add a new function to play the cached audio
+    /**
+     * Play audio that has been previously prepared and cached
+     */
+    const playPreparedAudio = useCallback(
+        async (text: string) => {
+            if (!text.trim()) {
+                return Promise.resolve(false);
+            }
+
+            // Generate cache key in the same way as textToSpeech
+            const voiceId = selectedVoice || "default";
+            const cacheKey = `${text}_${voiceId}`;
+
+            // Check if we have this audio in our cache
+            if (!audioCache.current.has(cacheKey)) {
+                console.log("Audio not found in cache, preparing it now");
+                await textToSpeech(text);
+            }
+
+            // Now try to play from cache
+            if (audioCache.current.has(cacheKey)) {
+                try {
+                    // Stop any existing audio first
+                    stopPlayback();
+
+                    // Set speaking state
+                    setIsSpeaking(true);
+                    console.log("Setting isSpeaking to TRUE");
+
+                    const cachedAudio = audioCache.current.get(cacheKey);
+                    if (cachedAudio) {
+                        // Use the enhanced audio player for cached audio
+                        try {
+                            // Create a new AudioContext if we don't have one
+                            if (!audioContextRef.current) {
+                                // Use modern AudioContext API with fallbacks
+                                const AudioContextClass =
+                                    window.AudioContext ||
+                                    (window as any).webkitAudioContext;
+                                audioContextRef.current = new AudioContextClass(
+                                    {
+                                        // Higher sample rate for better quality
+                                        sampleRate: 48000,
+                                        latencyHint: "interactive",
+                                    }
+                                );
+                            }
+
+                            // Resume the audio context if it's suspended
+                            if (audioContextRef.current.state === "suspended") {
+                                await audioContextRef.current.resume();
+                            }
+
+                            // Decode the audio data
+                            audioBufferRef.current =
+                                await audioContextRef.current.decodeAudioData(
+                                    cachedAudio.slice(0)
+                                );
+
+                            // Create a source node
+                            const source =
+                                audioContextRef.current.createBufferSource();
+                            source.buffer = audioBufferRef.current;
+
+                            // Create a gain node for volume control
+                            const gainNode =
+                                audioContextRef.current.createGain();
+                            gainNode.gain.value = 1.0; // Normal volume
+
+                            // Create a compressor for better audio quality
+                            const compressor =
+                                audioContextRef.current.createDynamicsCompressor();
+                            compressor.threshold.value = -24;
+                            compressor.knee.value = 30;
+                            compressor.ratio.value = 12;
+                            compressor.attack.value = 0.003;
+                            compressor.release.value = 0.25;
+
+                            // Create a biquad filter for better clarity
+                            const filter =
+                                audioContextRef.current.createBiquadFilter();
+                            filter.type = "highpass";
+                            filter.frequency.value = 100; // Filter out very low frequencies
+
+                            // Connect the nodes
+                            source.connect(filter);
+                            filter.connect(compressor);
+                            compressor.connect(gainNode);
+                            gainNode.connect(
+                                audioContextRef.current.destination
+                            );
+
+                            // Set up callbacks
+                            source.onended = () => {
+                                console.log("Enhanced audio playback ended");
+                                setIsSpeaking(false);
+                                requestInFlightRef.current = false;
+                            };
+
+                            // Start playback
+                            source.start(0);
+                            console.log("Enhanced audio playback started");
+
+                            // Call the playback started callback if provided
+                            if (onPlaybackStarted) {
+                                onPlaybackStarted();
+                            }
+
+                            // Set up a safety timeout based on the audio duration
+                            const duration = audioBufferRef.current.duration;
+                            const safetyTimeout =
+                                Math.ceil(duration * 1000) + 2000; // Add 2 seconds buffer
+
+                            if (timeoutRef.current) {
+                                clearTimeout(timeoutRef.current);
+                            }
+
+                            timeoutRef.current = window.setTimeout(() => {
+                                console.log(
+                                    "Safety timeout reached, forcing stop"
+                                );
+                                setIsSpeaking(false);
+                                requestInFlightRef.current = false;
+                                stopPlayback();
+                            }, safetyTimeout);
+
+                            return true;
+                        } catch (error) {
+                            console.error(
+                                "Enhanced audio playback error:",
+                                error
+                            );
+                            setIsSpeaking(false);
+                            return false;
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error playing cached audio:", error);
+                    setIsSpeaking(false);
+                    return false;
+                }
+            }
+
+            return false;
+        },
+        [selectedVoice, stopPlayback, textToSpeech, onPlaybackStarted]
+    );
+
     return {
         isSpeaking,
         textToSpeech,
+        playPreparedAudio,
         stopSpeaking,
     };
 }

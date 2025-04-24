@@ -80,17 +80,17 @@ function App() {
     const {
         isSpeaking,
         textToSpeech: originalTextToSpeech,
+        playPreparedAudio,
         stopSpeaking: originalStopSpeaking,
-    } = useTextToSpeech(deepgramApiKey, selectedVoice);
+    } = useTextToSpeech(deepgramApiKey, selectedVoice, () => {
+        // This callback is called when playback actually starts
+        setIsTherapistThinking(false);
+    });
 
     // Wrapper for textToSpeech that tracks which message is playing
     const textToSpeech = (text: string, messageId: number) => {
-        return originalTextToSpeech(text).then((result) => {
-            // Once speech starts, show the actual message
-            setIsTherapistThinking(false);
-            setActivePlayingIndex(messageId);
-            return result;
-        });
+        setActivePlayingIndex(messageId);
+        return playPreparedAudio(text);
     };
 
     // Wrapper for stopSpeaking that clears the active message
@@ -145,6 +145,16 @@ function App() {
         }
     }, [apiMessages]);
 
+    // Add a ref for the conversation container
+    const conversationRef = useRef<HTMLDivElement>(null);
+
+    // Auto-scroll to top when messages change
+    useEffect(() => {
+        if (conversationRef.current) {
+            conversationRef.current.scrollTop = 0;
+        }
+    }, [visibleMessages, isTherapistThinking]);
+
     // Synchronize audio playback with text display
     useEffect(() => {
         const lastMessage = apiMessages[apiMessages.length - 1];
@@ -164,32 +174,28 @@ function App() {
             lastProcessedMessageRef.current = lastMessage.content;
             processingTtsRef.current = true;
 
-            // Start the TTS request immediately for faster processing
-            const ttsPromise = textToSpeech(
-                lastMessage.content,
-                lastMessageIndex
-            );
+            // Show the thinking state immediately
+            setIsTherapistThinking(true);
 
-            // Set a short timeout (300ms) for the thinking state, then show the message
-            // This gives a brief thinking animation but then quickly shows the text
-            setTimeout(() => {
-                setIsTherapistThinking(false);
-                setVisibleMessages(apiMessages);
-            }, 300);
-
-            ttsPromise
+            // Start preparing the TTS request in the background
+            // This will cache the audio but not play it yet
+            originalTextToSpeech(lastMessage.content)
+                .then(() => {
+                    // Once TTS is prepared, show the message
+                    // We'll play the audio when the user clicks the play button
+                    setIsTherapistThinking(false);
+                    setVisibleMessages(apiMessages);
+                    processingTtsRef.current = false;
+                })
                 .catch((error) => {
-                    console.error("TTS playback error:", error);
+                    console.error("TTS preparation error:", error);
                     // If TTS fails, still show the message
                     setIsTherapistThinking(false);
                     setVisibleMessages(apiMessages);
-                })
-                .finally(() => {
-                    // Reset the processing flag once done
                     processingTtsRef.current = false;
                 });
         }
-    }, [apiMessages, textToSpeech]);
+    }, [apiMessages, originalTextToSpeech]);
 
     // When speech starts, update visible messages to include the assistant message
     useEffect(() => {
@@ -204,17 +210,6 @@ function App() {
         }
     }, [isSpeaking, activePlayingIndex, apiMessages]);
 
-    // Add a ref for the conversation container
-    const conversationRef = useRef<HTMLDivElement>(null);
-
-    // Auto-scroll to top when messages change
-    useEffect(() => {
-        if (conversationRef.current) {
-            conversationRef.current.scrollTop = 0;
-        }
-    }, [visibleMessages, isTherapistThinking]);
-
-    // Add back the startListening wrapper that was removed
     // Wrapper for startListening that clears transcript before starting
     const startListening = () => {
         setTranscript(""); // Clear transcript when starting to listen
@@ -228,7 +223,7 @@ function App() {
     if (isTherapistThinking) {
         displayMessages.push({
             role: "assistant",
-            content: "Therapist is thinking...",
+            content: "Therapist thinking...",
             isThinking: true,
         });
     }
