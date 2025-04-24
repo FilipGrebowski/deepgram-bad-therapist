@@ -151,7 +151,7 @@ app.post("/api/tts", async (req, res) => {
     }
 });
 
-app.post("/chat", async (req, res) => {
+app.post("/api/chat", async (req, res) => {
     const { messages, model, apiKey } = req.body;
 
     if (!messages || !messages.length) {
